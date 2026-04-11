@@ -29,6 +29,9 @@ Our latest addition, **LTX 2.3 Video Generator**, is designed for creators who n
 
 ## 📥 How to Use
 
+### Running on Runpod
+This fork includes a Runpod-ready project wrapper for the **LTX 2.3 Video Generator**. See [`runpod/README.md`](runpod/README.md) for SSH, upload, setup, and launch commands for an A100 pod.
+
 ### 1. Quick Download
 You can download individual `.ipynb` files directly from the `notebooks/` folder and upload them to your [Modal.com](https://modal.com) dashboard.
 
