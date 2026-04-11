@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VENV_PATH="${VENV_PATH:-/workspace/venvs/ltx23}"
+VENV_PATH="${VENV_PATH:-/opt/venvs/ltx23}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 

@@ -47,10 +47,10 @@ By default this installs into:
 
 ```text
 /workspace/ComfyUI
-/workspace/venvs/ltx23
+/opt/venvs/ltx23
 ```
 
-`/workspace` is the preferred Runpod path because it survives container restarts when your pod has persistent storage.
+ComfyUI and model weights stay under `/workspace` because that is the preferred Runpod path for persistent storage. The Python virtualenv uses `/opt/venvs/ltx23` by default because installing thousands of package files into the network-mounted `/workspace` volume can be very slow.
 
 ## Launch The Gradio UI
 
@@ -79,7 +79,7 @@ http://127.0.0.1:7860
 
 ```bash
 COMFY_PATH=/workspace/ComfyUI
-VENV_PATH=/workspace/venvs/ltx23
+VENV_PATH=/opt/venvs/ltx23
 GRADIO_PORT=7860
 COMFY_PORT=8188
 ```

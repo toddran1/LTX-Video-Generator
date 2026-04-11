@@ -2,8 +2,9 @@
 set -euo pipefail
 
 COMFY_PATH="${COMFY_PATH:-/workspace/ComfyUI}"
-VENV_PATH="${VENV_PATH:-/workspace/venvs/ltx23}"
+VENV_PATH="${VENV_PATH:-/opt/venvs/ltx23}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+export PIP_PROGRESS_BAR="${PIP_PROGRESS_BAR:-off}"
 
 echo "[1/5] Installing system packages"
 if command -v apt-get >/dev/null 2>&1; then
@@ -16,6 +17,7 @@ if command -v apt-get >/dev/null 2>&1; then
 fi
 
 echo "[2/5] Creating Python environment at ${VENV_PATH}"
+mkdir -p "$(dirname "${VENV_PATH}")"
 "${PYTHON_BIN}" -m venv "${VENV_PATH}"
 # shellcheck source=/dev/null
 source "${VENV_PATH}/bin/activate"
