@@ -5,6 +5,7 @@ COMFY_PATH="${COMFY_PATH:-/workspace/ComfyUI}"
 VENV_PATH="${VENV_PATH:-/opt/venvs/ltx23}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 export PIP_PROGRESS_BAR="${PIP_PROGRESS_BAR:-off}"
+export PIP_CACHE_DIR="${PIP_CACHE_DIR:-/tmp/pip-cache-ltx23}"
 
 echo "[1/5] Installing system packages"
 if command -v apt-get >/dev/null 2>&1; then

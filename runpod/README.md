@@ -80,6 +80,7 @@ http://127.0.0.1:7860
 ```bash
 COMFY_PATH=/workspace/ComfyUI
 VENV_PATH=/opt/venvs/ltx23
+PIP_CACHE_DIR=/tmp/pip-cache-ltx23
 GRADIO_PORT=7860
 COMFY_PORT=8188
 ```
