@@ -191,4 +191,9 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=GRADIO_PORT, share=False)
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=GRADIO_PORT,
+        share=False,
+        allowed_paths=[OUTPUT_PATH],
+    )
