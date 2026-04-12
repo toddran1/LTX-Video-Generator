@@ -52,6 +52,14 @@ By default this installs into:
 
 ComfyUI and model weights stay under `/workspace` because that is the preferred Runpod path for persistent storage. The Python virtualenv uses `/opt/venvs/ltx23` by default because installing thousands of package files into the network-mounted `/workspace` volume can be very slow.
 
+LTX 2.3 needs more than 20 GB for model weights. If your pod was created with a small `/workspace` quota, either resize/attach a larger persistent volume or use memory-backed storage for the current pod session:
+
+```bash
+MODEL_ROOT=/dev/shm/ltx23-models bash runpod/setup_ltx23.sh
+```
+
+`/dev/shm` is fast and large on A100 pods, but it is volatile. If the pod stops, run the setup again to re-download the weights.
+
 ## Launch The Gradio UI
 
 On the pod:
@@ -80,6 +88,7 @@ http://127.0.0.1:7860
 ```bash
 COMFY_PATH=/workspace/ComfyUI
 VENV_PATH=/opt/venvs/ltx23
+MODEL_ROOT=/workspace/ComfyUI/models
 PIP_CACHE_DIR=/tmp/pip-cache-ltx23
 GRADIO_PORT=7860
 COMFY_PORT=8188

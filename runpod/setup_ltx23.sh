@@ -3,6 +3,7 @@ set -euo pipefail
 
 COMFY_PATH="${COMFY_PATH:-/workspace/ComfyUI}"
 VENV_PATH="${VENV_PATH:-/opt/venvs/ltx23}"
+MODEL_ROOT="${MODEL_ROOT:-${COMFY_PATH}/models}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 export PIP_PROGRESS_BAR="${PIP_PROGRESS_BAR:-off}"
 export PIP_CACHE_DIR="${PIP_CACHE_DIR:-/tmp/pip-cache-ltx23}"
@@ -73,6 +74,28 @@ install_node "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
 install_node "https://github.com/kijai/ComfyUI-MelBandRoFormer"
 
 echo "[5/5] Downloading LTX 2.3 weights"
+model_dirs=(
+  diffusion_models
+  latent_upscale_models
+  loras
+  text_encoders
+  unet
+  vae
+)
+
+if [ "${MODEL_ROOT}" != "${COMFY_PATH}/models" ]; then
+  echo "Using external model root: ${MODEL_ROOT}"
+  mkdir -p "${MODEL_ROOT}" "${COMFY_PATH}/models"
+  for model_dir in "${model_dirs[@]}"; do
+    mkdir -p "${MODEL_ROOT}/${model_dir}"
+    if [ -d "${COMFY_PATH}/models/${model_dir}" ] && [ ! -L "${COMFY_PATH}/models/${model_dir}" ]; then
+      find "${COMFY_PATH}/models/${model_dir}" -maxdepth 1 -type f -exec mv -n {} "${MODEL_ROOT}/${model_dir}/" \;
+      rmdir "${COMFY_PATH}/models/${model_dir}" 2>/dev/null || true
+    fi
+    ln -sfn "${MODEL_ROOT}/${model_dir}" "${COMFY_PATH}/models/${model_dir}"
+  done
+fi
+
 download_model() {
   local url="$1"
   local dest="$2"
