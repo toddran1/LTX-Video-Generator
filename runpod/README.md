@@ -4,7 +4,9 @@ This folder turns the original Modal notebook flow into scripts that run directl
 
 ## Recommended Runpod Configuration
 
-Use an **NVIDIA A100 80 GB** pod for the best balance of VRAM headroom and cost. The current setup has been verified on:
+Use an **NVIDIA A100 80 GB** pod for the best balance of VRAM headroom and cost. A smaller A100 can work for conservative settings, but the 80 GB card leaves enough room for the LTX 2.3 GGUF model, text encoder, VAE, LoRA, and video upscaling flow.
+
+The current setup has been verified on:
 
 ```text
 GPU: NVIDIA A100-SXM4-80GB
@@ -13,15 +15,32 @@ ComfyUI: 0.18.1
 Gradio: 6.12.0
 ```
 
+Minimum pod settings:
+
+```text
+GPU: A100 40 GB
+Container disk: 40 GB or more
+Persistent volume: 60 GB or more
+HTTP ports: 7860 for Gradio
+SSH: enable direct TCP SSH if you want local port forwarding
+```
+
 Recommended pod settings:
 
 ```text
 GPU: A100 80 GB
-Container disk: 40 GB or more
-Persistent volume: 80-100 GB or more
+Container disk: 60-80 GB or more
+Persistent volume: 100-150 GB or more
 HTTP ports: 7860 for Gradio, 8888 optional for Jupyter
 SSH: enable direct TCP SSH if you want local port forwarding
 ```
+
+Practical notes:
+
+- Use A100 80 GB for the default workflow and larger resolutions/durations.
+- Use A100 40 GB only if you are willing to keep resolution, duration, and batch size conservative.
+- Avoid 24 GB GPUs for this setup. The model stack is large enough that VRAM pressure and CPU offload will likely make it unstable or too slow.
+- Use persistent storage for `/workspace/ComfyUI/models` if you do not want to re-download weights after every pod termination.
 
 LTX 2.3 uses large model files. The core files currently take roughly:
 

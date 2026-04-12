@@ -8,11 +8,19 @@ The current target runtime is a Runpod A100 pod running ComfyUI, the LTX 2.3 cus
 
 The detailed setup and operations guide is in [`runpod/README.md`](runpod/README.md).
 
+Minimum pod:
+
+- GPU: NVIDIA A100 40 GB VRAM
+- Container disk: 40 GB or more
+- Persistent volume: 60 GB or more
+- HTTP ports: expose `7860` for the Gradio UI
+- SSH: enable direct TCP SSH if you want local port forwarding
+
 Recommended pod:
 
 - GPU: NVIDIA A100 80 GB VRAM
-- Container disk: 40 GB or more
-- Persistent volume: 80-100 GB or more if you want model files to survive pod restarts
+- Container disk: 60-80 GB or more
+- Persistent volume: 100-150 GB or more if you want model files and outputs to survive pod restarts
 - HTTP ports: expose `7860` for the Gradio UI, and optionally `8888` for Jupyter
 - SSH: enable direct TCP SSH if you want local port forwarding
 
