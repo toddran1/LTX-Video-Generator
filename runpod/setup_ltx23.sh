@@ -102,7 +102,7 @@ download_model() {
   local filename="$3"
 
   mkdir -p "${dest}"
-  if [ ! -f "${dest}/${filename}" ]; then
+  if [ ! -f "${dest}/${filename}" ] || [ -f "${dest}/${filename}.aria2" ]; then
     aria2c \
       --console-log-level=error \
       -c \
