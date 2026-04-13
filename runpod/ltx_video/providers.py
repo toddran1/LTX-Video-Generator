@@ -147,7 +147,23 @@ class ComfyVideoToVideoProvider:
         os.makedirs(self.comfy.input_path, exist_ok=True)
 
         progress(0.1, desc="Preparing video-to-video inputs...")
-        workflow = load_workflow(source)
+        try:
+            workflow = load_workflow(source)
+        except FileNotFoundError as error:
+            ui_source = self.config.get("workflow", {}).get("ui_source_url")
+            message = (
+                f"{self.label} needs an API workflow JSON at {source}. "
+                "Run setup_v2v_ltx23.sh to download the source workflow, open it in ComfyUI, "
+                "export it as API JSON, and save it to that path."
+            )
+            if ui_source:
+                message += f" Source workflow: {ui_source}"
+            raise gr.Error(message) from error
+        except ValueError as error:
+            raise gr.Error(
+                f"{self.label} is pointed at a ComfyUI editor workflow. Export it as API JSON "
+                "from ComfyUI and update runpod/model_manifest.json to the API JSON path."
+            ) from error
         video_name = self._copy_to_input(input_video, "v2v_input")
         reference_names = []
         for index, reference_path in enumerate(reference_files or []):

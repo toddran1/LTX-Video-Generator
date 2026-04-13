@@ -28,10 +28,14 @@
     },
     {
       "id": "v2v_initial_backend",
-      "label": "Initial configurable ComfyUI video-to-video backend",
+      "label": "RuneXX LTX 2.3 ReTake video-to-video backend",
       "required": false,
-      "estimated_gb": 40,
-      "paths": []
+      "estimated_gb": 25,
+      "paths": [
+        "/workspace/ComfyUI/models/diffusion_models/LTX-2.3-distilled-Q4_K_S.gguf",
+        "/workspace/ComfyUI/models/text_encoders/gemma-3-12b-it-Q2_K.gguf",
+        "/workspace/ComfyUI/models/text_encoders/ltx-2.3_text_projection_bf16.safetensors"
+      ]
     }
   ],
   "backends": [
@@ -43,8 +47,8 @@
       "model_set": "ltx23_gguf"
     },
     {
-      "id": "comfy_v2v_template",
-      "label": "ComfyUI Video-to-Video Template",
+      "id": "ltx23_v2v_retake",
+      "label": "LTX 2.3 V2V ReTake",
       "type": "video_to_video",
       "enabled": true,
       "model_set": "v2v_initial_backend",
@@ -53,8 +57,10 @@
         "target_height": 720
       },
       "workflow": {
-        "path": "",
-        "url": ""
+        "path": "/network/workflows/ltx23_v2v_retake_api.json",
+        "url": "",
+        "ui_source_path": "/network/workflows/source/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json",
+        "ui_source_url": "https://huggingface.co/RuneXX/LTX-2.3-Workflows/resolve/main/Video-2-Video/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json"
       },
       "patches": {
         "prompt": [],

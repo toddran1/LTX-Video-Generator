@@ -24,7 +24,7 @@ Recommended pod:
 - HTTP ports: expose `7860` for the Gradio UI, and optionally `8888` for Jupyter
 - SSH: enable direct TCP SSH if you want local port forwarding
 
-Do not use a 10 GB network volume for this project. The current LTX model files alone are about 35 GB. Use at least 80 GB for short testing and 100-150 GB for normal development.
+Do not use a 10 GB network volume for this project. The current LTX model files alone are about 35 GB, and the first LTX v2v backend adds roughly 25 GB more. Use at least 80 GB for short testing and 100-150 GB for normal development. A 100 GB network volume is a good starting point for this phase.
 
 Setup on the pod:
 

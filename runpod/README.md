@@ -55,7 +55,7 @@ Total model storage: about 35 GB
 
 Use persistent storage when possible. `/dev/shm` is a practical fallback on large-memory A100 pods, but it is erased when the pod stops.
 
-Do not use a 10 GB network volume. The model set is too large. Use at least 80 GB for short testing and 100-150 GB for normal development.
+Do not use a 10 GB network volume. The model set is too large. Use at least 80 GB for short testing and 100-150 GB for normal development. A 100 GB network volume is a good starting point for the current LTX plus initial v2v setup.
 
 ## Network Storage Layout
 
@@ -85,6 +85,12 @@ export HUGGINGFACE_HUB_CACHE=/network/hf-cache/hub
 export TRANSFORMERS_CACHE=/network/hf-cache/transformers
 export TMPDIR=/network/tmp
 bash runpod/setup_ltx23.sh
+```
+
+Install the initial LTX 2.3 video-to-video backend:
+
+```bash
+bash runpod/setup_v2v_ltx23.sh
 ```
 
 Check storage estimates and missing files:
@@ -295,7 +301,7 @@ MODEL_ROOT=/dev/shm/ltx23-models bash runpod/setup_ltx23.sh
 
 ## Video-To-Video Backends
 
-The app has a video-to-video tab and a backend abstraction. The initial backend is `comfy_v2v_template`, defined in `runpod/model_manifest.json`.
+The app has a video-to-video tab and a backend abstraction. The initial backend is `ltx23_v2v_retake`, defined in `runpod/model_manifest.json`.
 
 It supports:
 
@@ -304,15 +310,33 @@ It supports:
 - optional reference images
 - target 720p settings
 - optional original audio passthrough/remux
-- ComfyUI workflow JSON patching
+- ComfyUI API workflow JSON patching
 
-To activate a concrete ComfyUI video-to-video workflow:
+The initial backend uses the community LTX 2.3 ReTake source workflow from:
 
-1. Export the workflow as ComfyUI API JSON.
-2. Store it on persistent storage, for example `/network/workflows/my-v2v-api.json`.
-3. Add that path to `runpod/model_manifest.json`.
-4. Fill in the node patch mappings for prompt, video, reference images, width, height, fps, and seed.
-5. Restart the Gradio UI.
+```text
+https://huggingface.co/RuneXX/LTX-2.3-Workflows
+```
+
+`setup_v2v_ltx23.sh` downloads that source workflow and the extra model files. The downloaded source workflow is a ComfyUI editor workflow, so it must be exported once as API JSON before the Gradio app can queue it programmatically.
+
+To activate it on a pod:
+
+1. Run `bash runpod/setup_v2v_ltx23.sh`.
+2. Open ComfyUI at port `8188` through a tunnel or Runpod HTTP service.
+3. Load `/network/workflows/source/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json`.
+4. Export the workflow as API JSON.
+5. Save it to `/network/workflows/ltx23_v2v_retake_api.json`.
+6. Inspect the API workflow nodes:
+
+   ```bash
+   python runpod/inspect_workflow.py /network/workflows/ltx23_v2v_retake_api.json
+   ```
+
+7. Fill in or confirm the node patch mappings in `runpod/model_manifest.json`.
+8. Restart the Gradio UI.
+
+Future backends can use the same manifest shape with different workflow JSON and patch mappings.
 
 The detailed design is in `runpod/ARCHITECTURE.md`.
 

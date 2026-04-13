@@ -94,7 +94,16 @@ def load_workflow_from_url(url):
 
 def load_workflow(path_or_url):
     if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
-        return load_workflow_from_url(path_or_url)
-    with open(path_or_url, "r", encoding="utf-8") as workflow_file:
-        return json.load(workflow_file)
+        workflow = load_workflow_from_url(path_or_url)
+    else:
+        if not os.path.exists(path_or_url):
+            raise FileNotFoundError(path_or_url)
+        with open(path_or_url, "r", encoding="utf-8") as workflow_file:
+            workflow = json.load(workflow_file)
 
+    if isinstance(workflow, dict) and "nodes" in workflow:
+        raise ValueError(
+            "This is a ComfyUI editor workflow. Export it as API JSON before using it "
+            "with the Runpod backend."
+        )
+    return workflow

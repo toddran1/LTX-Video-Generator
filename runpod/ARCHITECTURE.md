@@ -67,15 +67,26 @@ It validates video metadata with `ffprobe`, copies inputs into ComfyUI's input d
 - enabled backends
 - workflow patch maps for configurable ComfyUI providers
 
-The initial video-to-video backend is intentionally workflow-configurable:
+The initial video-to-video backend is `ltx23_v2v_retake`, based on the RuneXX community LTX 2.3 ReTake workflow source on Hugging Face:
+
+```text
+https://huggingface.co/RuneXX/LTX-2.3-Workflows
+```
+
+The source file is a ComfyUI editor workflow. The app queues ComfyUI API JSON, so the source workflow must be exported once as API JSON and saved to:
+
+```text
+/network/workflows/ltx23_v2v_retake_api.json
+```
+
+The backend remains workflow-configurable:
 
 ```json
 {
-  "id": "comfy_v2v_template",
+  "id": "ltx23_v2v_retake",
   "type": "video_to_video",
   "workflow": {
-    "path": "",
-    "url": ""
+    "path": "/network/workflows/ltx23_v2v_retake_api.json"
   },
   "patches": {
     "prompt": [],
@@ -106,11 +117,13 @@ To activate a concrete ComfyUI v2v workflow, export the workflow as API JSON, pl
 }
 ```
 
+Use `runpod/inspect_workflow.py` to inspect either editor workflow JSON or API workflow JSON while building these mappings.
+
 This keeps the app independent of one node graph and lets multiple v2v backends coexist.
 
 ## Initial Video-To-Video Integration Strategy
 
-Use a ComfyUI workflow that supports video loading, prompt conditioning, optional reference image conditioning, and video saving. The preferred first class of workflows should preserve motion structure and allow 720p output. Good candidates are workflows based on open ComfyUI nodes for video loading/saving, image/video conditioning, and diffusion video editing.
+Use a ComfyUI workflow that supports video loading, prompt conditioning, optional reference image conditioning, and video saving. The first concrete target is the LTX 2.3 ReTake workflow because it is LTX-native, community-maintained, and designed for recreating sections of an input video while preserving the overall structure.
 
 The app does not add prompt filtering or app-level topic restrictions. Model behavior depends on the chosen backend and weights.
 
@@ -153,4 +166,3 @@ Future provider types can be added for:
 - face/identity consistency
 - multi-stage pipelines
 - non-ComfyUI APIs
-
