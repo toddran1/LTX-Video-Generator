@@ -1,6 +1,6 @@
 # Runpod LTX 2.3 Setup
 
-This folder turns the original Modal notebook flow into scripts that run directly on a Runpod A100 pod.
+This folder turns the original Modal notebook flow into scripts that run directly on a Runpod A100 pod. The current app keeps the working LTX text/image flow and adds a manifest-driven video-to-video backend layer.
 
 ## Recommended Runpod Configuration
 
@@ -54,6 +54,44 @@ Total model storage: about 35 GB
 ```
 
 Use persistent storage when possible. `/dev/shm` is a practical fallback on large-memory A100 pods, but it is erased when the pod stops.
+
+Do not use a 10 GB network volume. The model set is too large. Use at least 80 GB for short testing and 100-150 GB for normal development.
+
+## Network Storage Layout
+
+For network storage, use an explicit layout:
+
+```text
+/network/models
+/network/hf-cache
+/network/ComfyUI
+/network/outputs
+/network/tmp
+```
+
+Prepare it with:
+
+```bash
+NETWORK_ROOT=/network bash runpod/bootstrap_storage.sh
+```
+
+Then run setup with persistent model storage:
+
+```bash
+export NETWORK_ROOT=/network
+export MODEL_ROOT=/network/models
+export HF_HOME=/network/hf-cache
+export HUGGINGFACE_HUB_CACHE=/network/hf-cache/hub
+export TRANSFORMERS_CACHE=/network/hf-cache/transformers
+export TMPDIR=/network/tmp
+bash runpod/setup_ltx23.sh
+```
+
+Check storage estimates and missing files:
+
+```bash
+python runpod/storage_report.py --model-root "${MODEL_ROOT:-/workspace/ComfyUI/models}"
+```
 
 ## SSH
 
@@ -254,6 +292,29 @@ Your `/workspace` quota is too small for the model set. Prefer resizing or attac
 ```bash
 MODEL_ROOT=/dev/shm/ltx23-models bash runpod/setup_ltx23.sh
 ```
+
+## Video-To-Video Backends
+
+The app has a video-to-video tab and a backend abstraction. The initial backend is `comfy_v2v_template`, defined in `runpod/model_manifest.json`.
+
+It supports:
+
+- input videos up to 60 seconds
+- required prompt
+- optional reference images
+- target 720p settings
+- optional original audio passthrough/remux
+- ComfyUI workflow JSON patching
+
+To activate a concrete ComfyUI video-to-video workflow:
+
+1. Export the workflow as ComfyUI API JSON.
+2. Store it on persistent storage, for example `/network/workflows/my-v2v-api.json`.
+3. Add that path to `runpod/model_manifest.json`.
+4. Fill in the node patch mappings for prompt, video, reference images, width, height, fps, and seed.
+5. Restart the Gradio UI.
+
+The detailed design is in `runpod/ARCHITECTURE.md`.
 
 ## Useful Environment Variables
 

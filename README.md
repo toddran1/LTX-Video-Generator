@@ -2,7 +2,7 @@
 
 This fork packages the original Modal notebook workflow into a Runpod-ready LTX 2.3 video generator.
 
-The current target runtime is a Runpod A100 pod running ComfyUI, the LTX 2.3 custom nodes, and a Gradio UI for text-to-video and image-to-video generation.
+The current target runtime is a Runpod A100 pod running ComfyUI, the LTX 2.3 custom nodes, and a Gradio UI for text-to-video, image-to-video, and configurable video-to-video workflows.
 
 ## Runpod Quick Start
 
@@ -23,6 +23,8 @@ Recommended pod:
 - Persistent volume: 100-150 GB or more if you want model files and outputs to survive pod restarts
 - HTTP ports: expose `7860` for the Gradio UI, and optionally `8888` for Jupyter
 - SSH: enable direct TCP SSH if you want local port forwarding
+
+Do not use a 10 GB network volume for this project. The current LTX model files alone are about 35 GB. Use at least 80 GB for short testing and 100-150 GB for normal development.
 
 Setup on the pod:
 
@@ -67,6 +69,10 @@ echo $! > runpod/ui.pid
 ## Original Notebooks
 
 The upstream repository contains Modal notebooks under [`notebooks/`](notebooks/). This fork keeps them for reference, but the supported deployment path for this project is the Runpod setup in [`runpod/`](runpod/).
+
+## Architecture
+
+The app now uses a provider layer so the working LTX text/image flow can coexist with future video-to-video models. See [`runpod/ARCHITECTURE.md`](runpod/ARCHITECTURE.md) for the v2v backend structure, model manifest, storage layout, validation, and audio passthrough design.
 
 ## 🤝 Contributing
 Found a bug or have a suggestion for a new notebook? Feel free to open an issue or submit a pull request!

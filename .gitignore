@@ -16,3 +16,18 @@ ENV/
 # IDEs
 .vscode/
 .idea/
+
+# Runtime outputs and large generated artifacts
+outputs/
+runpod/ui.log
+runpod/*.pid
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.safetensors
+*.gguf
+*.ckpt
+*.pth
+*.pt
+*.aria2
