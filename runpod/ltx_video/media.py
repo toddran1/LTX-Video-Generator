@@ -59,6 +59,7 @@ def video_info(path):
         "fps": _ratio_to_float(video_stream.get("avg_frame_rate")),
         "codec": video_stream.get("codec_name", "unknown"),
         "has_audio": audio_stream is not None,
+        "audio_duration": float(audio_stream.get("duration") or 0) if audio_stream else 0,
         "format": data.get("format", {}).get("format_name", "unknown"),
     }
 
@@ -92,7 +93,8 @@ def validate_video(path, max_duration=60):
 def copy_video_for_audio_workflow(source_video, destination, info):
     """Copy a video for ComfyUI workflows that require an audio stream."""
     duration = float(info.get("duration") or 0)
-    if info.get("has_audio") and duration >= MIN_COMFY_AUDIO_SECONDS:
+    audio_duration = float(info.get("audio_duration") or 0)
+    if info.get("has_audio") and audio_duration >= MIN_COMFY_AUDIO_SECONDS:
         shutil.copy(source_video, destination)
         return destination
 
@@ -109,6 +111,10 @@ def copy_video_for_audio_workflow(source_video, destination, info):
         f"{audio_duration:.3f}",
         "-i",
         "anullsrc=channel_layout=stereo:sample_rate=44100",
+        "-map",
+        "0:v:0",
+        "-map",
+        "1:a:0",
         "-c:v",
         "copy",
         "-c:a",
