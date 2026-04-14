@@ -6,7 +6,12 @@ import gradio as gr
 from PIL import Image
 
 from .comfy import load_workflow
-from .media import MediaValidationError, mux_original_audio, validate_video
+from .media import (
+    MediaValidationError,
+    copy_video_for_audio_workflow,
+    mux_original_audio,
+    validate_video,
+)
 
 
 def uploaded_path(value):
@@ -92,11 +97,20 @@ class ComfyVideoToVideoProvider:
         workflow = self.config.get("workflow", {})
         return workflow.get("path") or workflow.get("url")
 
-    def _copy_to_input(self, path, prefix):
-        extension = os.path.splitext(path)[1].lower()
+    def _copy_to_input(self, path, prefix, extension=None):
+        extension = extension or os.path.splitext(path)[1].lower()
         filename = f"{prefix}_{int(time.time() * 1000)}{extension}"
         destination = os.path.join(self.comfy.input_path, filename)
         shutil.copy(path, destination)
+        return filename
+
+    def _copy_video_to_input(self, path, info):
+        extension = os.path.splitext(path)[1].lower()
+        if not info.get("has_audio"):
+            extension = ".mp4"
+        filename = f"v2v_input_{int(time.time() * 1000)}{extension}"
+        destination = os.path.join(self.comfy.input_path, filename)
+        copy_video_for_audio_workflow(path, destination, info)
         return filename
 
     def _apply_patch(self, workflow, patch, value):
@@ -164,7 +178,7 @@ class ComfyVideoToVideoProvider:
                 f"{self.label} is pointed at a ComfyUI editor workflow. Export it as API JSON "
                 "from ComfyUI and update runpod/model_manifest.json to the API JSON path."
             ) from error
-        video_name = self._copy_to_input(input_video, "v2v_input")
+        video_name = self._copy_video_to_input(input_video, info)
         reference_names = []
         for index, reference_path in enumerate(reference_files or []):
             if reference_path:

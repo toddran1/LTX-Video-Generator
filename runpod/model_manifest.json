@@ -115,6 +115,11 @@
                     "node": "578",
                     "input": "filename_prefix",
                     "value": "ltx23_v2v"
+                },
+                {
+                    "node": "477",
+                    "input": "type",
+                    "value": "ltxv"
                 }
             ]
         }

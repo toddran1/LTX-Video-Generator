@@ -88,6 +88,35 @@ def validate_video(path, max_duration=60):
     return info
 
 
+def copy_video_for_audio_workflow(source_video, destination, info):
+    """Copy a video for ComfyUI workflows that require an audio stream."""
+    if info.get("has_audio"):
+        shutil.copy(source_video, destination)
+        return destination
+
+    require_binary("ffmpeg")
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        source_video,
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=stereo:sample_rate=44100",
+        "-shortest",
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-movflags",
+        "+faststart",
+        destination,
+    ]
+    subprocess.run(command, check=True, capture_output=True, text=True)
+    return destination
+
+
 def mux_original_audio(generated_video, source_video, output_dir):
     info = video_info(source_video)
     if not info["has_audio"]:
@@ -117,4 +146,3 @@ def mux_original_audio(generated_video, source_video, output_dir):
     ]
     subprocess.run(command, check=True, capture_output=True, text=True)
     return output_path
-
