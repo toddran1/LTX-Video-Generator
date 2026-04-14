@@ -6,6 +6,7 @@ import time
 
 
 SUPPORTED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm"}
+MIN_COMFY_AUDIO_SECONDS = 1.0
 
 
 class MediaValidationError(ValueError):
@@ -90,11 +91,13 @@ def validate_video(path, max_duration=60):
 
 def copy_video_for_audio_workflow(source_video, destination, info):
     """Copy a video for ComfyUI workflows that require an audio stream."""
-    if info.get("has_audio"):
+    duration = float(info.get("duration") or 0)
+    if info.get("has_audio") and duration >= MIN_COMFY_AUDIO_SECONDS:
         shutil.copy(source_video, destination)
         return destination
 
     require_binary("ffmpeg")
+    audio_duration = max(duration, MIN_COMFY_AUDIO_SECONDS)
     command = [
         "ffmpeg",
         "-y",
@@ -102,9 +105,10 @@ def copy_video_for_audio_workflow(source_video, destination, info):
         source_video,
         "-f",
         "lavfi",
+        "-t",
+        f"{audio_duration:.3f}",
         "-i",
         "anullsrc=channel_layout=stereo:sample_rate=44100",
-        "-shortest",
         "-c:v",
         "copy",
         "-c:a",
