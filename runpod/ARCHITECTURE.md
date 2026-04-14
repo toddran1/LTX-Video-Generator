@@ -15,11 +15,11 @@ This project keeps the working LTX 2.3 text-to-video and image-to-video path int
 Recommended persistent layout when using Runpod network storage:
 
 ```text
-/network/models
-/network/hf-cache
-/network/ComfyUI
-/network/outputs
-/network/tmp
+/workspace/ComfyUI/models
+/workspace/hf-cache
+/workspace/ComfyUI
+/workspace/outputs
+/workspace/tmp
 ```
 
 Current compatibility layout:
@@ -27,7 +27,6 @@ Current compatibility layout:
 ```text
 /workspace/modal-notebook
 /workspace/ComfyUI
-/workspace/ComfyUI/models -> /network/models when MODEL_ROOT=/network/models
 /opt/venvs/ltx23
 ```
 
@@ -76,7 +75,7 @@ https://huggingface.co/RuneXX/LTX-2.3-Workflows
 The source file is a ComfyUI editor workflow. The app queues ComfyUI API JSON, so the source workflow must be exported once as API JSON and saved to:
 
 ```text
-/network/workflows/ltx23_v2v_retake_api.json
+/workspace/workflows/ltx23_v2v_retake_api.json
 ```
 
 The backend remains workflow-configurable:
@@ -86,7 +85,7 @@ The backend remains workflow-configurable:
   "id": "ltx23_v2v_retake",
   "type": "video_to_video",
   "workflow": {
-    "path": "/network/workflows/ltx23_v2v_retake_api.json"
+    "path": "/workspace/workflows/ltx23_v2v_retake_api.json"
   },
   "patches": {
     "prompt": [],
@@ -104,7 +103,7 @@ To activate a concrete ComfyUI v2v workflow, export the workflow as API JSON, pl
 
 ```json
 "workflow": {
-  "path": "/network/workflows/my-v2v-api.json"
+  "path": "/workspace/workflows/my-v2v-api.json"
 },
 "patches": {
   "prompt": [{"node": "12", "input": "text"}],

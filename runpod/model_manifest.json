@@ -1,12 +1,12 @@
 {
   "version": 1,
   "storage_layout": {
-    "root": "/network",
-    "models": "/network/models",
-    "hf_cache": "/network/hf-cache",
-    "comfyui": "/network/ComfyUI",
-    "outputs": "/network/outputs",
-    "tmp": "/network/tmp"
+    "root": "/workspace",
+    "models": "/workspace/ComfyUI/models",
+    "hf_cache": "/workspace/hf-cache",
+    "comfyui": "/workspace/ComfyUI",
+    "outputs": "/workspace/outputs",
+    "tmp": "/workspace/tmp"
   },
   "model_sets": [
     {
@@ -57,9 +57,9 @@
         "target_height": 720
       },
       "workflow": {
-        "path": "/network/workflows/ltx23_v2v_retake_api.json",
+        "path": "/workspace/workflows/ltx23_v2v_retake_api.json",
         "url": "",
-        "ui_source_path": "/network/workflows/source/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json",
+        "ui_source_path": "/workspace/workflows/source/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json",
         "ui_source_url": "https://huggingface.co/RuneXX/LTX-2.3-Workflows/resolve/main/Video-2-Video/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json"
       },
       "patches": {

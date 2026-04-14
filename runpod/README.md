@@ -59,31 +59,31 @@ Do not use a 10 GB network volume. The model set is too large. Use at least 80 G
 
 ## Network Storage Layout
 
-For network storage, use an explicit layout:
+On Runpod, network storage is mounted at `/workspace`. Use this explicit layout:
 
 ```text
-/network/models
-/network/hf-cache
-/network/ComfyUI
-/network/outputs
-/network/tmp
+/workspace/ComfyUI/models
+/workspace/hf-cache
+/workspace/ComfyUI
+/workspace/outputs
+/workspace/tmp
 ```
 
 Prepare it with:
 
 ```bash
-NETWORK_ROOT=/network bash runpod/bootstrap_storage.sh
+NETWORK_ROOT=/workspace bash runpod/bootstrap_storage.sh
 ```
 
 Then run setup with persistent model storage:
 
 ```bash
-export NETWORK_ROOT=/network
-export MODEL_ROOT=/network/models
-export HF_HOME=/network/hf-cache
-export HUGGINGFACE_HUB_CACHE=/network/hf-cache/hub
-export TRANSFORMERS_CACHE=/network/hf-cache/transformers
-export TMPDIR=/network/tmp
+export NETWORK_ROOT=/workspace
+export MODEL_ROOT=/workspace/ComfyUI/models
+export HF_HOME=/workspace/hf-cache
+export HUGGINGFACE_HUB_CACHE=/workspace/hf-cache/hub
+export TRANSFORMERS_CACHE=/workspace/hf-cache/transformers
+export TMPDIR=/workspace/tmp
 bash runpod/setup_ltx23.sh
 ```
 
@@ -324,13 +324,13 @@ To activate it on a pod:
 
 1. Run `bash runpod/setup_v2v_ltx23.sh`.
 2. Open ComfyUI at port `8188` through a tunnel or Runpod HTTP service.
-3. Load `/network/workflows/source/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json`.
+3. Load `/workspace/workflows/source/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json`.
 4. Export the workflow as API JSON.
-5. Save it to `/network/workflows/ltx23_v2v_retake_api.json`.
+5. Save it to `/workspace/workflows/ltx23_v2v_retake_api.json`.
 6. Inspect the API workflow nodes:
 
    ```bash
-   python runpod/inspect_workflow.py /network/workflows/ltx23_v2v_retake_api.json
+   python runpod/inspect_workflow.py /workspace/workflows/ltx23_v2v_retake_api.json
    ```
 
 7. Fill in or confirm the node patch mappings in `runpod/model_manifest.json`.

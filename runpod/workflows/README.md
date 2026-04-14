@@ -7,8 +7,7 @@ Do not commit model weights, generated videos, input media, or large binary arti
 For production Runpod usage, prefer storing workflow JSON on persistent storage, for example:
 
 ```text
-/network/workflows/my-v2v-api.json
+/workspace/workflows/my-v2v-api.json
 ```
 
 Then point `runpod/model_manifest.json` at that path.
-

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NETWORK_ROOT="${NETWORK_ROOT:-/network}"
+NETWORK_ROOT="${NETWORK_ROOT:-/workspace}"
 COMFY_PATH="${COMFY_PATH:-/workspace/ComfyUI}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-${NETWORK_ROOT}/outputs}"
 
@@ -17,7 +17,7 @@ echo "Export these values before setup when this volume is mounted:"
 cat <<EOF
 export NETWORK_ROOT=${NETWORK_ROOT}
 export COMFY_PATH=${COMFY_PATH}
-export MODEL_ROOT=${NETWORK_ROOT}/models
+export MODEL_ROOT=${COMFY_PATH}/models
 export HF_HOME=${NETWORK_ROOT}/hf-cache
 export HUGGINGFACE_HUB_CACHE=${NETWORK_ROOT}/hf-cache/hub
 export TRANSFORMERS_CACHE=${NETWORK_ROOT}/hf-cache/transformers
@@ -32,4 +32,3 @@ if [ -d "${COMFY_PATH}" ]; then
 fi
 
 echo "Storage layout ready."
-

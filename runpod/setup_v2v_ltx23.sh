@@ -3,7 +3,7 @@ set -euo pipefail
 
 COMFY_PATH="${COMFY_PATH:-/workspace/ComfyUI}"
 MODEL_ROOT="${MODEL_ROOT:-${COMFY_PATH}/models}"
-NETWORK_ROOT="${NETWORK_ROOT:-/network}"
+NETWORK_ROOT="${NETWORK_ROOT:-/workspace}"
 WORKFLOW_ROOT="${WORKFLOW_ROOT:-${NETWORK_ROOT}/workflows}"
 
 echo "[1/4] Preparing LTX 2.3 video-to-video workflow storage"
@@ -64,4 +64,3 @@ and save the API JSON here:
 
 The app backend is already configured to read that API JSON path.
 EOF
-
