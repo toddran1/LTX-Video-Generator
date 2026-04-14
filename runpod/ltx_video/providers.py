@@ -125,6 +125,25 @@ class ComfyVideoToVideoProvider:
         for patch in patches:
             self._apply_patch(workflow, patch, value)
 
+    def _remove_passthrough_node(self, workflow, class_type, input_name):
+        for node_id, node in list(workflow.items()):
+            if node.get("class_type") != class_type:
+                continue
+
+            source = node.get("inputs", {}).get(input_name)
+            if not source:
+                continue
+
+            for other_node in workflow.values():
+                inputs = other_node.get("inputs", {})
+                for key, value in list(inputs.items()):
+                    if isinstance(value, list) and value and str(value[0]) == str(node_id):
+                        inputs[key] = source
+            workflow.pop(node_id, None)
+
+    def _prepare_workflow_for_api(self, workflow):
+        self._remove_passthrough_node(workflow, "LTX2SamplingPreviewOverride", "model")
+
     def generate(
         self,
         input_video,
@@ -178,6 +197,7 @@ class ComfyVideoToVideoProvider:
                 f"{self.label} is pointed at a ComfyUI editor workflow. Export it as API JSON "
                 "from ComfyUI and update runpod/model_manifest.json to the API JSON path."
             ) from error
+        self._prepare_workflow_for_api(workflow)
         video_name = self._copy_video_to_input(input_video, info)
         reference_names = []
         for index, reference_path in enumerate(reference_files or []):
