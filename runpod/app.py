@@ -134,7 +134,9 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
                     file_count="multiple",
                     file_types=["image"],
                     label="Reference Images",
-                    info="For the current LTX ReTake backend, the first image is used as the character/style reference.",
+                )
+                gr.Markdown(
+                    "For the current LTX ReTake backend, the first image is used as the character/style reference."
                 )
                 with gr.Row():
                     v2v_width_slider = gr.Slider(minimum=256, maximum=1280, step=32, value=1280, label="Target Width")
