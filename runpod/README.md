@@ -320,13 +320,38 @@ https://huggingface.co/RuneXX/LTX-2.3-Workflows
 
 `setup_v2v_ltx23.sh` downloads that source workflow and the extra model files. The downloaded source workflow is a ComfyUI editor workflow, so it must be exported once as API JSON before the Gradio app can queue it programmatically.
 
+For local graph editing without using the pod GPU, see:
+
+```text
+docs/local-comfy-workflow-editing.md
+```
+
+Repo-tracked workflow locations:
+
+```text
+runpod/workflows/source/
+runpod/workflows/api/
+```
+
+The app now prefers the repo-tracked API workflow when it exists:
+
+```text
+runpod/workflows/api/ltx23_v2v_retake_api.json
+```
+
+If that file is missing, it falls back to the older pod storage path:
+
+```text
+/workspace/workflows/ltx23_v2v_retake_api.json
+```
+
 To activate it on a pod:
 
 1. Run `bash runpod/setup_v2v_ltx23.sh`.
 2. Open ComfyUI at port `8188` through a tunnel or Runpod HTTP service.
-3. Load `/workspace/workflows/source/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json`.
+3. Load `/workspace/workflows/source/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json`, or load the repo-tracked source workflow.
 4. Export the workflow as API JSON.
-5. Save it to `/workspace/workflows/ltx23_v2v_retake_api.json`.
+5. Save it to `runpod/workflows/api/ltx23_v2v_retake_api.json` when you want the graph tracked in Git. For one-off pod tests, save it to `/workspace/workflows/ltx23_v2v_retake_api.json`.
 6. Inspect the API workflow nodes:
 
    ```bash
@@ -335,6 +360,10 @@ To activate it on a pod:
 
 7. Fill in or confirm the node patch mappings in `runpod/model_manifest.json`.
 8. Restart the Gradio UI.
+
+The current ReTake backend exposes app controls for full-video retake, retake start/end seconds, transform strength, prompt CFG, and NAG prompt influence. These patch the ComfyUI nodes that most directly affect whether the output meaningfully changes or simply preserves the input.
+
+For this initial LTX ReTake backend, the first uploaded reference image overrides the workflow's `ref_image` channel. Use it for prompts such as `Change the person in the video to the character in this image`. If no reference image is uploaded, the workflow keeps its original first-frame reference behavior.
 
 Future backends can use the same manifest shape with different workflow JSON and patch mappings.
 

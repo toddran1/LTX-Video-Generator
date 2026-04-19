@@ -58,6 +58,12 @@ def generate_v2v_video(
     target_height,
     seed,
     preserve_audio,
+    retake_full_video,
+    retake_start,
+    retake_end,
+    transform_strength,
+    prompt_cfg,
+    nag_scale,
     progress=gr.Progress(),
 ):
     if backend_label not in v2v_provider_by_label:
@@ -71,6 +77,12 @@ def generate_v2v_video(
         target_height=target_height,
         seed=seed,
         preserve_audio=preserve_audio,
+        retake_full_video=retake_full_video,
+        retake_start=retake_start,
+        retake_end=retake_end,
+        transform_strength=transform_strength,
+        prompt_cfg=prompt_cfg,
+        nag_scale=nag_scale,
         progress=progress,
     )
 
@@ -122,6 +134,7 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
                     file_count="multiple",
                     file_types=["image"],
                     label="Reference Images",
+                    info="For the current LTX ReTake backend, the first image is used as the character/style reference.",
                 )
                 with gr.Row():
                     v2v_width_slider = gr.Slider(minimum=256, maximum=1280, step=32, value=1280, label="Target Width")
@@ -129,6 +142,36 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
                 with gr.Row():
                     v2v_seed_input = gr.Number(value=43, label="Seed", precision=0)
                     preserve_audio_input = gr.Checkbox(value=True, label="Preserve Original Audio")
+                with gr.Accordion("Advanced V2V Controls", open=False):
+                    retake_full_video_input = gr.Checkbox(
+                        value=True,
+                        label="Transform Full Video",
+                    )
+                    with gr.Row():
+                        retake_start_input = gr.Number(value=0.0, label="Retake Start Seconds")
+                        retake_end_input = gr.Number(value=60.0, label="Retake End Seconds")
+                    with gr.Row():
+                        transform_strength_input = gr.Slider(
+                            minimum=0.1,
+                            maximum=1.0,
+                            step=0.05,
+                            value=1.0,
+                            label="Transform Strength",
+                        )
+                        prompt_cfg_input = gr.Slider(
+                            minimum=0.5,
+                            maximum=5.0,
+                            step=0.1,
+                            value=1.4,
+                            label="Prompt CFG",
+                        )
+                    nag_scale_input = gr.Slider(
+                        minimum=0.0,
+                        maximum=20.0,
+                        step=0.5,
+                        value=11.0,
+                        label="NAG Prompt Influence",
+                    )
                 v2v_generate_btn = gr.Button("Transform Video", variant="primary")
             with gr.Column(scale=1):
                 v2v_output = gr.Video(label="Transformed Output")
@@ -161,6 +204,12 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
             v2v_height_slider,
             v2v_seed_input,
             preserve_audio_input,
+            retake_full_video_input,
+            retake_start_input,
+            retake_end_input,
+            transform_strength_input,
+            prompt_cfg_input,
+            nag_scale_input,
         ],
         outputs=v2v_output,
     )

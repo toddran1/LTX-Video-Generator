@@ -57,10 +57,17 @@
                 "target_height": 720
             },
             "workflow": {
+                "repo_path": "runpod/workflows/api/ltx23_v2v_retake_api.json",
                 "path": "/workspace/workflows/ltx23_v2v_retake_api.json",
                 "url": "",
+                "source_repo_path": "runpod/workflows/source/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json",
                 "ui_source_path": "/workspace/workflows/source/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json",
                 "ui_source_url": "https://huggingface.co/RuneXX/LTX-2.3-Workflows/resolve/main/Video-2-Video/LTX-2.3_-_V2V_ReTake_recreate_any_section_of_any_video.json"
+            },
+            "reference_image": {
+                "set_node": "438",
+                "input": "image",
+                "notes": "Overrides LTXVImgToVideoInplace image guidance with the first uploaded reference image. Without an uploaded reference image, the workflow keeps its original first-frame reference behavior."
             },
             "patches": {
                 "prompt": [
@@ -98,6 +105,44 @@
                         "node": "243",
                         "input": "noise_seed"
                     }
+                ],
+                "retake_start": [
+                    {
+                        "node": "661",
+                        "input": "value"
+                    }
+                ],
+                "retake_end": [
+                    {
+                        "node": "662",
+                        "input": "value"
+                    }
+                ],
+                "transform_strength": [
+                    {
+                        "node": "164",
+                        "input": "denoise"
+                    },
+                    {
+                        "node": "438",
+                        "input": "strength"
+                    }
+                ],
+                "prompt_cfg": [
+                    {
+                        "node": "129",
+                        "input": "cfg"
+                    },
+                    {
+                        "node": "256",
+                        "input": "cfg"
+                    }
+                ],
+                "nag_scale": [
+                    {
+                        "node": "563",
+                        "input": "nag_scale"
+                    }
                 ]
             },
             "static_patches": [
@@ -120,6 +165,31 @@
                     "node": "477",
                     "input": "type",
                     "value": "ltxv"
+                },
+                {
+                    "node": "475",
+                    "input": "unet_name",
+                    "value": "LTX-2.3-distilled-Q4_K_S.gguf"
+                },
+                {
+                    "node": "463",
+                    "input": "vae_name",
+                    "value": "ltx-2.3-22b-dev_video_vae.safetensors"
+                },
+                {
+                    "node": "471",
+                    "input": "vae_name",
+                    "value": "ltx-2.3-22b-dev_audio_vae.safetensors"
+                },
+                {
+                    "node": "473",
+                    "input": "vae_name",
+                    "value": "taeltx2_3.safetensors"
+                },
+                {
+                    "node": "465",
+                    "input": "model_name",
+                    "value": "ltx-2.3-spatial-upscaler-x2-1.0.safetensors"
                 }
             ]
         }

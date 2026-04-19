@@ -14,6 +14,9 @@ from .media import (
 )
 
 
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
 def uploaded_path(value):
     if value is None:
         return None
@@ -93,9 +96,24 @@ class ComfyVideoToVideoProvider:
     def label(self):
         return self.config.get("label", self.config["id"])
 
+    def _resolve_path(self, path):
+        if not path:
+            return None
+        if path.startswith("http://") or path.startswith("https://"):
+            return path
+        if os.path.isabs(path):
+            return path
+        return os.path.join(PROJECT_ROOT, path)
+
     def _workflow_source(self):
         workflow = self.config.get("workflow", {})
-        return workflow.get("path") or workflow.get("url")
+        for key in ("repo_path", "path", "url"):
+            source = self._resolve_path(workflow.get(key))
+            if not source:
+                continue
+            if source.startswith("http://") or source.startswith("https://") or os.path.exists(source):
+                return source
+        return self._resolve_path(workflow.get("repo_path") or workflow.get("path") or workflow.get("url"))
 
     def _copy_to_input(self, path, prefix, extension=None):
         extension = extension or os.path.splitext(path)[1].lower()
@@ -125,6 +143,72 @@ class ComfyVideoToVideoProvider:
         for patch in patches:
             self._apply_patch(workflow, patch, value)
 
+    def _replace_node_references(self, workflow, source_node_id, replacement):
+        for node in workflow.values():
+            inputs = node.get("inputs", {})
+            for key, value in list(inputs.items()):
+                if isinstance(value, list) and value and str(value[0]) == str(source_node_id):
+                    inputs[key] = list(replacement)
+
+    def _prefer_loader(self, workflow, preferred_class_type, fallback_class_types):
+        preferred_id = None
+        fallback_ids = []
+        fallback_types = set(fallback_class_types)
+        for node_id, node in workflow.items():
+            class_type = node.get("class_type")
+            if class_type == preferred_class_type:
+                preferred_id = node_id
+            elif class_type in fallback_types:
+                fallback_ids.append(node_id)
+
+        if preferred_id is None:
+            return
+
+        replacement = [str(preferred_id), 0]
+        for fallback_id in fallback_ids:
+            self._replace_node_references(workflow, fallback_id, replacement)
+
+    def _next_node_id(self, workflow):
+        numeric_ids = [int(node_id) for node_id in workflow.keys() if str(node_id).isdigit()]
+        return str(max(numeric_ids, default=0) + 1)
+
+    def _insert_load_image_reference(self, workflow, image_name):
+        reference_config = self.config.get("reference_image")
+        if not reference_config:
+            return False
+
+        set_node_id = str(reference_config.get("set_node"))
+        if set_node_id not in workflow:
+            raise gr.Error(
+                f"Workflow is missing reference image node {set_node_id} "
+                f"for backend {self.config['id']}."
+            )
+
+        loader_node_id = self._next_node_id(workflow)
+        workflow[loader_node_id] = {
+            "inputs": {
+                "image": image_name,
+            },
+            "class_type": "LoadImage",
+            "_meta": {
+                "title": "Reference Image Loader",
+            },
+        }
+
+        inputs = workflow[set_node_id].setdefault("inputs", {})
+        input_name = reference_config.get("input")
+        if input_name:
+            inputs[input_name] = [loader_node_id, 0]
+            return True
+
+        for key, value in list(inputs.items()):
+            if isinstance(value, list):
+                inputs[key] = [loader_node_id, 0]
+                return True
+
+        inputs["image"] = [loader_node_id, 0]
+        return True
+
     def _remove_passthrough_node(self, workflow, class_type, input_name):
         for node_id, node in list(workflow.items()):
             if node.get("class_type") != class_type:
@@ -142,6 +226,8 @@ class ComfyVideoToVideoProvider:
             workflow.pop(node_id, None)
 
     def _prepare_workflow_for_api(self, workflow):
+        self._prefer_loader(workflow, "UnetLoaderGGUF", ["UNETLoader"])
+        self._prefer_loader(workflow, "DualCLIPLoaderGGUF", ["DualCLIPLoader"])
         self._remove_passthrough_node(workflow, "LTX2SamplingPreviewOverride", "model")
 
     def generate(
@@ -153,6 +239,12 @@ class ComfyVideoToVideoProvider:
         target_height,
         seed,
         preserve_audio,
+        retake_full_video,
+        retake_start,
+        retake_end,
+        transform_strength,
+        prompt_cfg,
+        nag_scale,
         progress,
     ):
         if not prompt or not prompt.strip():
@@ -183,11 +275,16 @@ class ComfyVideoToVideoProvider:
         try:
             workflow = load_workflow(source)
         except FileNotFoundError as error:
-            ui_source = self.config.get("workflow", {}).get("ui_source_url")
+            workflow_config = self.config.get("workflow", {})
+            ui_source = (
+                workflow_config.get("source_repo_path")
+                or workflow_config.get("ui_source_path")
+                or workflow_config.get("ui_source_url")
+            )
             message = (
                 f"{self.label} needs an API workflow JSON at {source}. "
-                "Run setup_v2v_ltx23.sh to download the source workflow, open it in ComfyUI, "
-                "export it as API JSON, and save it to that path."
+                "Open the source workflow in ComfyUI, export it as API JSON, "
+                "and save it to the configured repo_path or /workspace fallback path."
             )
             if ui_source:
                 message += f" Source workflow: {ui_source}"
@@ -207,10 +304,25 @@ class ComfyVideoToVideoProvider:
         self._apply_patch_group(workflow, "prompt", prompt)
         self._apply_patch_group(workflow, "video", video_name)
         self._apply_patch_group(workflow, "reference_images", reference_names)
+        if reference_names:
+            self._insert_load_image_reference(workflow, reference_names[0])
         self._apply_patch_group(workflow, "width", max(256, round(target_width / 32) * 32))
         self._apply_patch_group(workflow, "height", max(256, round(target_height / 32) * 32))
         self._apply_patch_group(workflow, "fps", round(info["fps"], 3))
         self._apply_patch_group(workflow, "seed", int(seed))
+        if retake_full_video:
+            self._apply_patch_group(workflow, "retake_start", 0.0)
+            self._apply_patch_group(workflow, "retake_end", round(info["duration"], 3))
+        else:
+            start_seconds = max(0.0, float(retake_start))
+            end_seconds = min(float(retake_end), info["duration"])
+            if end_seconds <= start_seconds:
+                raise gr.Error("Retake end must be greater than retake start.")
+            self._apply_patch_group(workflow, "retake_start", start_seconds)
+            self._apply_patch_group(workflow, "retake_end", round(end_seconds, 3))
+        self._apply_patch_group(workflow, "transform_strength", float(transform_strength))
+        self._apply_patch_group(workflow, "prompt_cfg", float(prompt_cfg))
+        self._apply_patch_group(workflow, "nag_scale", float(nag_scale))
         for patch in self.config.get("static_patches", []):
             self._apply_patch(workflow, patch, patch.get("value"))
 

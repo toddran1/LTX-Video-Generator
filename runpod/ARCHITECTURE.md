@@ -72,7 +72,27 @@ The initial video-to-video backend is `ltx23_v2v_retake`, based on the RuneXX co
 https://huggingface.co/RuneXX/LTX-2.3-Workflows
 ```
 
-The source file is a ComfyUI editor workflow. The app queues ComfyUI API JSON, so the source workflow must be exported once as API JSON and saved to:
+The source file is a ComfyUI editor workflow. The app queues ComfyUI API JSON, so the source workflow must be exported once as API JSON.
+
+Repo-tracked source workflows live here:
+
+```text
+runpod/workflows/source/
+```
+
+Repo-tracked API workflows live here:
+
+```text
+runpod/workflows/api/
+```
+
+The current backend prefers:
+
+```text
+runpod/workflows/api/ltx23_v2v_retake_api.json
+```
+
+If the repo-tracked API workflow is missing, the backend falls back to:
 
 ```text
 /workspace/workflows/ltx23_v2v_retake_api.json
@@ -85,6 +105,7 @@ The backend remains workflow-configurable:
   "id": "ltx23_v2v_retake",
   "type": "video_to_video",
   "workflow": {
+    "repo_path": "runpod/workflows/api/ltx23_v2v_retake_api.json",
     "path": "/workspace/workflows/ltx23_v2v_retake_api.json"
   },
   "patches": {
@@ -94,7 +115,12 @@ The backend remains workflow-configurable:
     "width": [],
     "height": [],
     "fps": [],
-    "seed": []
+    "seed": [],
+    "retake_start": [],
+    "retake_end": [],
+    "transform_strength": [],
+    "prompt_cfg": [],
+    "nag_scale": []
   }
 }
 ```
@@ -112,13 +138,29 @@ To activate a concrete ComfyUI v2v workflow, export the workflow as API JSON, pl
   "width": [{"node": "78", "input": "width"}],
   "height": [{"node": "78", "input": "height"}],
   "fps": [{"node": "90", "input": "fps"}],
-  "seed": [{"node": "91", "input": "seed"}]
+  "seed": [{"node": "91", "input": "seed"}],
+  "retake_start": [{"node": "92", "input": "value"}],
+  "retake_end": [{"node": "93", "input": "value"}],
+  "transform_strength": [{"node": "94", "input": "denoise"}],
+  "prompt_cfg": [{"node": "95", "input": "cfg"}],
+  "nag_scale": [{"node": "96", "input": "nag_scale"}]
 }
 ```
 
-Use `runpod/inspect_workflow.py` to inspect either editor workflow JSON or API workflow JSON while building these mappings.
+Use `runpod/inspect_workflow.py` to inspect either editor workflow JSON or API workflow JSON while building these mappings. For local visual editing, use `docs/local-comfy-workflow-editing.md`.
 
 This keeps the app independent of one node graph and lets multiple v2v backends coexist.
+
+The initial LTX ReTake backend supports one reference image by overriding the workflow's `ref_image` channel at runtime:
+
+```json
+"reference_image": {
+  "set_node": "438",
+  "input": "image"
+}
+```
+
+When a user uploads a reference image, the provider inserts a ComfyUI `LoadImage` API node and routes it into `LTXVImgToVideoInplace.image`. Without an uploaded reference image, the original workflow path remains unchanged and uses the input video's first frame as the reference image.
 
 ## Initial Video-To-Video Integration Strategy
 
