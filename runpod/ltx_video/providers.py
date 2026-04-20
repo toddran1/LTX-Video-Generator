@@ -225,10 +225,17 @@ class ComfyVideoToVideoProvider:
                         inputs[key] = source
             workflow.pop(node_id, None)
 
+    def _remove_nodes_by_class_type(self, workflow, class_types):
+        remove_types = set(class_types)
+        for node_id, node in list(workflow.items()):
+            if node.get("class_type") in remove_types:
+                workflow.pop(node_id, None)
+
     def _prepare_workflow_for_api(self, workflow):
         self._prefer_loader(workflow, "UnetLoaderGGUF", ["UNETLoader"])
         self._prefer_loader(workflow, "DualCLIPLoaderGGUF", ["DualCLIPLoader"])
         self._remove_passthrough_node(workflow, "LTX2SamplingPreviewOverride", "model")
+        self._remove_nodes_by_class_type(workflow, ["easy showAnything"])
 
     def generate(
         self,
