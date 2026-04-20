@@ -127,6 +127,24 @@ def copy_video_for_audio_workflow(source_video, destination, info):
     return destination
 
 
+def extract_first_frame(source_video, destination):
+    require_binary("ffmpeg")
+    os.makedirs(os.path.dirname(destination), exist_ok=True)
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        source_video,
+        "-frames:v",
+        "1",
+        "-q:v",
+        "2",
+        destination,
+    ]
+    subprocess.run(command, check=True, capture_output=True, text=True)
+    return destination
+
+
 def mux_original_audio(generated_video, source_video, output_dir):
     info = video_info(source_video)
     if not info["has_audio"]:

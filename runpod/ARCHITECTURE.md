@@ -66,7 +66,12 @@ It validates video metadata with `ffprobe`, copies inputs into ComfyUI's input d
 - enabled backends
 - workflow patch maps for configurable ComfyUI providers
 
-The initial video-to-video backend is `ltx23_v2v_retake`, based on the RuneXX community LTX 2.3 ReTake workflow source on Hugging Face:
+The app currently has two video-to-video backends:
+
+- `wan21_fun_control_v2v`: stronger prompt/reference driven transformation using Wan 2.1 Fun Control.
+- `ltx23_v2v_retake`: LTX-native retake/edit workflow for lighter changes.
+
+`ltx23_v2v_retake` is based on the RuneXX community LTX 2.3 ReTake workflow source on Hugging Face:
 
 ```text
 https://huggingface.co/RuneXX/LTX-2.3-Workflows
@@ -86,7 +91,7 @@ Repo-tracked API workflows live here:
 runpod/workflows/api/
 ```
 
-The current backend prefers:
+Each backend can prefer a repo-tracked API workflow and fall back to persistent pod storage. The LTX ReTake backend prefers:
 
 ```text
 runpod/workflows/api/ltx23_v2v_retake_api.json
@@ -151,7 +156,7 @@ Use `runpod/inspect_workflow.py` to inspect either editor workflow JSON or API w
 
 This keeps the app independent of one node graph and lets multiple v2v backends coexist.
 
-The initial LTX ReTake backend supports one reference image by overriding the workflow's `ref_image` channel at runtime:
+The LTX ReTake backend supports one reference image by overriding the workflow's `ref_image` channel at runtime:
 
 ```json
 "reference_image": {
@@ -160,11 +165,33 @@ The initial LTX ReTake backend supports one reference image by overriding the wo
 }
 ```
 
-When a user uploads a reference image, the provider inserts a ComfyUI `LoadImage` API node and routes it into `LTXVImgToVideoInplace.image`. Without an uploaded reference image, the original workflow path remains unchanged and uses the input video's first frame as the reference image.
+When a user uploads a reference image, the provider inserts a ComfyUI `LoadImage` API node and routes it into `LTXVImgToVideoInplace.image`. Without an uploaded reference image, the provider bypasses the first-frame guide and reduces the last-frame guide to avoid the static first-frame behavior seen in testing.
+
+The Wan Fun Control backend uses a different reference strategy:
+
+```json
+"reference_image": {
+  "mode": "load_image_input",
+  "set_node": "52",
+  "input": "image",
+  "fallback": "first_frame"
+}
+```
+
+`mode: load_image_input` means the provider patches the existing `LoadImage.image` widget directly instead of inserting another image loader node. `fallback: first_frame` means a prompt-only video-to-video request still has a valid Wan start/reference image by extracting frame 0 from the input video with `ffmpeg`.
 
 ## Initial Video-To-Video Integration Strategy
 
-Use a ComfyUI workflow that supports video loading, prompt conditioning, optional reference image conditioning, and video saving. The first concrete target is the LTX 2.3 ReTake workflow because it is LTX-native, community-maintained, and designed for recreating sections of an input video while preserving the overall structure.
+Use a ComfyUI workflow that supports video loading, prompt conditioning, optional reference image conditioning, and video saving.
+
+The current strategy is:
+
+- Use Wan 2.1 Fun Control for stronger prompt/reference driven transformation and style conversion tests.
+- Keep LTX 2.3 ReTake for lighter retake/editing workflows where preserving the source structure matters more than changing the whole visual style.
+
+The first Wan API workflow is derived from the official ComfyUI Wan 2.1 Fun Control custom-node example and replaces the example WebP output with `VHS_VideoCombine` MP4 output so the existing app can detect and optionally remux audio.
+
+The initial Wan backend is capped to 81 loaded frames by static workflow patch. That is intentional for early A100 testing. Full 60 second 720p support should be implemented as chunked generation plus stitch/remux, rather than trying to push every frame through one ComfyUI prompt.
 
 The app does not add prompt filtering or app-level topic restrictions. Model behavior depends on the chosen backend and weights.
 

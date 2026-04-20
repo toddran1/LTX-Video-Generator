@@ -9,6 +9,7 @@ from .comfy import load_workflow
 from .media import (
     MediaValidationError,
     copy_video_for_audio_workflow,
+    extract_first_frame,
     mux_original_audio,
     validate_video,
 )
@@ -184,6 +185,11 @@ class ComfyVideoToVideoProvider:
                 f"for backend {self.config['id']}."
             )
 
+        if reference_config.get("mode") == "load_image_input":
+            input_name = reference_config.get("input", "image")
+            workflow[set_node_id].setdefault("inputs", {})[input_name] = image_name
+            return True
+
         loader_node_id = self._next_node_id(workflow)
         workflow[loader_node_id] = {
             "inputs": {
@@ -243,6 +249,19 @@ class ComfyVideoToVideoProvider:
             return False
         node.setdefault("inputs", {})[input_name] = value
         return True
+
+    def _reference_image_name(self, input_video, reference_names):
+        if reference_names:
+            return reference_names[0]
+
+        reference_config = self.config.get("reference_image", {})
+        if reference_config.get("fallback") != "first_frame":
+            return None
+
+        filename = f"v2v_first_frame_{int(time.time() * 1000)}.jpg"
+        destination = os.path.join(self.comfy.input_path, filename)
+        extract_first_frame(input_video, destination)
+        return filename
 
     def generate(
         self,
@@ -315,12 +334,12 @@ class ComfyVideoToVideoProvider:
             if reference_path:
                 reference_names.append(self._copy_to_input(reference_path, f"v2v_ref_{index}"))
 
-        has_reference_image = bool(reference_names)
         self._apply_patch_group(workflow, "prompt", prompt)
         self._apply_patch_group(workflow, "video", video_name)
         self._apply_patch_group(workflow, "reference_images", reference_names)
-        if has_reference_image:
-            self._insert_load_image_reference(workflow, reference_names[0])
+        reference_image_name = self._reference_image_name(input_video, reference_names)
+        if reference_image_name:
+            self._insert_load_image_reference(workflow, reference_image_name)
             self._set_optional_input(workflow, "438", "bypass", False)
         else:
             self._set_optional_input(workflow, "438", "bypass", True)

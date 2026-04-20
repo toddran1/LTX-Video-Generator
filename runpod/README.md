@@ -55,7 +55,7 @@ Total model storage: about 35 GB
 
 Use persistent storage when possible. `/dev/shm` is a practical fallback on large-memory A100 pods, but it is erased when the pod stops.
 
-Do not use a 10 GB network volume. The model set is too large. Use at least 80 GB for short testing and 100-150 GB for normal development. A 100 GB network volume is a good starting point for the current LTX plus initial v2v setup.
+Do not use a 10 GB network volume. The model set is too large. Use at least 100 GB for short testing and 150 GB or more for normal development with generated outputs. A 100 GB network volume can fit the current LTX stack plus the first v2v backends, but it leaves limited room for outputs and future model experiments.
 
 ## Network Storage Layout
 
@@ -91,6 +91,12 @@ Install the initial LTX 2.3 video-to-video backend:
 
 ```bash
 bash runpod/setup_v2v_ltx23.sh
+```
+
+Install the stronger Wan 2.1 Fun Control video-to-video backend:
+
+```bash
+bash runpod/setup_wan21_fun_control_v2v.sh
 ```
 
 Check storage estimates and missing files:
@@ -156,6 +162,21 @@ MODEL_ROOT=/dev/shm/ltx23-models bash runpod/setup_ltx23.sh
 ```
 
 `/dev/shm` is fast and large on A100 pods, but it is volatile. If the pod stops, run the setup again to re-download the weights.
+
+## Video-To-Video Backends
+
+The app currently exposes two video-to-video backends:
+
+```text
+Wan 2.1 Fun Control V2V
+LTX 2.3 V2V ReTake
+```
+
+Use **Wan 2.1 Fun Control V2V** first for full-style transformation tests such as anime-to-realism or stronger scene restyling. It uses the input video as a control video, applies prompt conditioning, and uses the first uploaded reference image as the start/reference image. If no reference image is uploaded, the app extracts the first frame from the input video.
+
+Use **LTX 2.3 V2V ReTake** for lighter retake/editing tests where preserving the original structure is more important than replacing the visual style. That backend is useful, but it is not the best fit for converting an entire anime clip into realistic footage.
+
+The initial Wan workflow caps each generation to 81 loaded frames to keep testing practical on one A100. Longer 60 second inputs need chunking and stitching before they are practical at 720p. The provider structure is set up so that chunking, upscaling, interpolation, identity-preservation passes, and alternate backends can be added without changing the original LTX text/image flow.
 
 ## Launch The Gradio UI
 
