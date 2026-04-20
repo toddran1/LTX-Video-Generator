@@ -237,6 +237,13 @@ class ComfyVideoToVideoProvider:
         self._remove_passthrough_node(workflow, "LTX2SamplingPreviewOverride", "model")
         self._remove_nodes_by_class_type(workflow, ["easy showAnything"])
 
+    def _set_optional_input(self, workflow, node_id, input_name, value):
+        node = workflow.get(str(node_id))
+        if not node:
+            return False
+        node.setdefault("inputs", {})[input_name] = value
+        return True
+
     def generate(
         self,
         input_video,
@@ -308,11 +315,16 @@ class ComfyVideoToVideoProvider:
             if reference_path:
                 reference_names.append(self._copy_to_input(reference_path, f"v2v_ref_{index}"))
 
+        has_reference_image = bool(reference_names)
         self._apply_patch_group(workflow, "prompt", prompt)
         self._apply_patch_group(workflow, "video", video_name)
         self._apply_patch_group(workflow, "reference_images", reference_names)
-        if reference_names:
+        if has_reference_image:
             self._insert_load_image_reference(workflow, reference_names[0])
+            self._set_optional_input(workflow, "438", "bypass", False)
+        else:
+            self._set_optional_input(workflow, "438", "bypass", True)
+            self._set_optional_input(workflow, "545", "strength", 0.25)
         self._apply_patch_group(workflow, "width", max(256, round(target_width / 32) * 32))
         self._apply_patch_group(workflow, "height", max(256, round(target_height / 32) * 32))
         self._apply_patch_group(workflow, "fps", round(info["fps"], 3))
