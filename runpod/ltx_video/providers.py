@@ -11,6 +11,7 @@ from .media import (
     copy_video_for_audio_workflow,
     extract_first_frame,
     mux_original_audio,
+    upscale_video,
     validate_video,
 )
 
@@ -96,6 +97,14 @@ class ComfyVideoToVideoProvider:
     @property
     def label(self):
         return self.config.get("label", self.config["id"])
+
+    def _output_resolution(self, output_resolution):
+        resolutions = {
+            "480p": (848, 480),
+            "720p": (1280, 720),
+            "1080p": (1920, 1080),
+        }
+        return resolutions.get(output_resolution, resolutions["720p"])
 
     def _resolve_path(self, path):
         if not path:
@@ -270,6 +279,7 @@ class ComfyVideoToVideoProvider:
         reference_files,
         target_width,
         target_height,
+        output_resolution,
         seed,
         preserve_audio,
         retake_full_video,
@@ -344,8 +354,10 @@ class ComfyVideoToVideoProvider:
         else:
             self._set_optional_input(workflow, "438", "bypass", True)
             self._set_optional_input(workflow, "545", "strength", 0.25)
-        self._apply_patch_group(workflow, "width", max(256, round(target_width / 32) * 32))
-        self._apply_patch_group(workflow, "height", max(256, round(target_height / 32) * 32))
+        base_width = max(256, round(target_width / 16) * 16)
+        base_height = max(256, round(target_height / 16) * 16)
+        self._apply_patch_group(workflow, "width", base_width)
+        self._apply_patch_group(workflow, "height", base_height)
         self._apply_patch_group(workflow, "fps", round(info["fps"], 3))
         self._apply_patch_group(workflow, "seed", int(seed))
         if retake_full_video:
@@ -372,6 +384,15 @@ class ComfyVideoToVideoProvider:
         video = self.comfy.latest_video(since=started_at)
         if video is None:
             raise gr.Error("ComfyUI finished but no MP4 output was found.")
+
+        output_width, output_height = self._output_resolution(output_resolution)
+        if (output_width, output_height) != (base_width, base_height):
+            progress(
+                0.9,
+                desc=f"Upscaling rendered video to {output_resolution} ({output_width}x{output_height})...",
+            )
+            upscale_dir = os.path.join(self.comfy.output_path, "upscaled")
+            video = upscale_video(video, upscale_dir, output_width, output_height)
 
         if preserve_audio:
             progress(0.95, desc="Muxing original audio...")

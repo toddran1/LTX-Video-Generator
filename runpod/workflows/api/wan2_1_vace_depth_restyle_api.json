@@ -1,14 +1,4 @@
 {
-  "37": {
-    "inputs": {
-      "unet_name": "wan2.1_fun_control_1.3B_bf16.safetensors",
-      "weight_dtype": "default"
-    },
-    "class_type": "UNETLoader",
-    "_meta": {
-      "title": "Wan Fun Control Model"
-    }
-  },
   "38": {
     "inputs": {
       "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
@@ -29,13 +19,13 @@
       "title": "Wan VAE"
     }
   },
-  "49": {
+  "73": {
     "inputs": {
-      "clip_name": "clip_vision_h.safetensors"
+      "unet_name": "Wan2.1_14B_VACE-Q4_K_M.gguf"
     },
-    "class_type": "CLIPVisionLoader",
+    "class_type": "UnetLoaderGGUF",
     "_meta": {
-      "title": "CLIP Vision"
+      "title": "Wan 2.1 VACE GGUF Model"
     }
   },
   "6": {
@@ -64,88 +54,81 @@
       "title": "Negative Prompt"
     }
   },
-  "52": {
-    "inputs": {
-      "image": "v2v_reference_or_first_frame.jpg"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Reference Or First Frame"
-    }
-  },
-  "51": {
-    "inputs": {
-      "crop": "none",
-      "clip_vision": [
-        "49",
-        0
-      ],
-      "image": [
-        "52",
-        0
-      ]
-    },
-    "class_type": "CLIPVisionEncode",
-    "_meta": {
-      "title": "Reference CLIP Vision Encode"
-    }
-  },
-  "76": {
+  "84": {
     "inputs": {
       "video": "v2v_input.mp4",
-      "force_rate": 0,
+      "force_rate": 16,
       "custom_width": 0,
       "custom_height": 0,
       "frame_load_cap": 161,
       "skip_first_frames": 0,
       "select_every_nth": 1,
-      "format": "AnimateDiff"
+      "format": "Wan"
     },
     "class_type": "VHS_LoadVideo",
     "_meta": {
-      "title": "Load Control Video"
+      "title": "Load Input Video"
     }
   },
-  "78": {
+  "152": {
     "inputs": {
-      "video_info": [
-        "76",
-        3
-      ]
-    },
-    "class_type": "VHS_VideoInfo",
-    "_meta": {
-      "title": "Video Info"
-    }
-  },
-  "91": {
-    "inputs": {
-      "detect_hand": "disable",
-      "detect_body": "disable",
-      "detect_face": "enable",
-      "resolution": 512,
-      "bbox_detector": "yolox_l.onnx",
-      "pose_estimator": "dw-ll_ucoco_384_bs5.torchscript.pt",
-      "scale_stick_for_xinsr_cn": "disable",
+      "upscale_method": "nearest-exact",
+      "megapixels": 0.5,
+      "resolution_steps": 1,
       "image": [
-        "76",
+        "84",
         0
       ]
     },
-    "class_type": "DWPreprocessor",
+    "class_type": "ImageScaleToTotalPixels",
     "_meta": {
-      "title": "Face Control Preprocessor"
+      "title": "Scale Control Frames"
     }
   },
-  "55": {
+  "153": {
+    "inputs": {
+      "width": 1280,
+      "height": 720,
+      "upscale_method": "nearest-exact",
+      "keep_proportion": "crop",
+      "pad_color": "0, 0, 0",
+      "crop_position": "center",
+      "divisible_by": 16,
+      "device": "cpu",
+      "image": [
+        "152",
+        0
+      ]
+    },
+    "class_type": "ImageResizeKJv2",
+    "_meta": {
+      "title": "Resize Control Frames"
+    }
+  },
+  "149": {
+    "inputs": {
+      "ckpt_name": "depth_anything_v2_vitl.pth",
+      "resolution": 768,
+      "image": [
+        "153",
+        0
+      ]
+    },
+    "class_type": "DepthAnythingV2Preprocessor",
+    "_meta": {
+      "title": "Depth Structure Control"
+    }
+  },
+  "83": {
     "inputs": {
       "width": 1280,
       "height": 720,
       "length": [
-        "76",
+        "84",
         1
       ],
       "batch_size": 1,
+      "strength": 0.95,
       "positive": [
         "6",
         0
@@ -158,47 +141,21 @@
         "39",
         0
       ],
-      "clip_vision_output": [
-        "51",
-        0
-      ],
-      "start_image": [
-        "52",
-        0
-      ],
       "control_video": [
-        "91",
+        "149",
         0
       ]
     },
-    "class_type": "WanFunControlToVideo",
+    "class_type": "WanVaceToVideo",
     "_meta": {
-      "title": "Wan Fun Control Conditioning"
+      "title": "Wan VACE Video Conditioning"
     }
   },
-  "65": {
+  "48": {
     "inputs": {
-      "double_layers": "9,10",
-      "single_layers": "9,10",
-      "scale": 3,
-      "start_percent": 0.01,
-      "end_percent": 0.8,
-      "rescaling_scale": 0,
+      "shift": 8,
       "model": [
-        "37",
-        0
-      ]
-    },
-    "class_type": "SkipLayerGuidanceDiT",
-    "_meta": {
-      "title": "Skip Layer Guidance"
-    }
-  },
-  "67": {
-    "inputs": {
-      "shift": 5.0,
-      "model": [
-        "65",
+        "73",
         0
       ]
     },
@@ -207,14 +164,14 @@
       "title": "Wan Model Sampling"
     }
   },
-  "68": {
+  "81": {
     "inputs": {
       "self_structural": 1,
       "self_temporal": 1,
       "cross_structural": 1.2,
       "cross_temporal": 1.3,
       "model": [
-        "67",
+        "48",
         0
       ]
     },
@@ -223,10 +180,10 @@
       "title": "Temporal Attention Boost"
     }
   },
-  "66": {
+  "76": {
     "inputs": {
       "model": [
-        "68",
+        "81",
         0
       ]
     },
@@ -238,37 +195,53 @@
   "3": {
     "inputs": {
       "seed": 43,
-      "steps": 20,
-      "cfg": 6.0,
-      "sampler_name": "uni_pc",
+      "steps": 24,
+      "cfg": 5.0,
+      "sampler_name": "euler",
       "scheduler": "simple",
       "denoise": 1.0,
       "model": [
-        "66",
+        "76",
         0
       ],
       "positive": [
-        "55",
+        "83",
         0
       ],
       "negative": [
-        "55",
+        "83",
         1
       ],
       "latent_image": [
-        "55",
+        "83",
         2
       ]
     },
     "class_type": "KSampler",
     "_meta": {
-      "title": "Wan Sampler"
+      "title": "Wan VACE Sampler"
+    }
+  },
+  "155": {
+    "inputs": {
+      "trim_amount": [
+        "83",
+        3
+      ],
+      "samples": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "TrimVideoLatent",
+    "_meta": {
+      "title": "Trim Reference Latents"
     }
   },
   "8": {
     "inputs": {
       "samples": [
-        "3",
+        "155",
         0
       ],
       "vae": [
@@ -281,18 +254,15 @@
       "title": "Decode Video Frames"
     }
   },
-  "96": {
+  "113": {
     "inputs": {
       "images": [
         "8",
         0
       ],
-      "frame_rate": [
-        "78",
-        0
-      ],
+      "frame_rate": 16,
       "loop_count": 0,
-      "filename_prefix": "wan21_fun_control_v2v",
+      "filename_prefix": "wan21_vace_v2v",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -303,7 +273,7 @@
     },
     "class_type": "VHS_VideoCombine",
     "_meta": {
-      "title": "Wan V2V Output"
+      "title": "Wan VACE Output"
     }
   }
 }

@@ -48,6 +48,17 @@
                 "/workspace/ComfyUI/models/vae/wan_2.1_vae.safetensors",
                 "/workspace/ComfyUI/models/clip_vision/clip_vision_h.safetensors"
             ]
+        },
+        {
+            "id": "wan21_vace",
+            "label": "Wan 2.1 VACE video editing backend",
+            "required": false,
+            "estimated_gb": 13,
+            "paths": [
+                "/workspace/ComfyUI/models/unet/Wan2.1_14B_VACE-Q4_K_M.gguf",
+                "/workspace/ComfyUI/models/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+                "/workspace/ComfyUI/models/vae/wan_2.1_vae.safetensors"
+            ]
         }
     ],
     "backends": [
@@ -59,6 +70,277 @@
             "model_set": "ltx23_gguf"
         },
         {
+            "id": "wan21_vace_depth_restyle",
+            "label": "Wan 2.1 VACE Depth Restyle",
+            "type": "video_to_video",
+            "enabled": true,
+            "model_set": "wan21_vace",
+            "limits": {
+                "max_duration_seconds": 60,
+                "target_height": 720,
+                "recommended_frame_cap": 161
+            },
+            "workflow": {
+                "repo_path": "runpod/workflows/api/wan2_1_vace_depth_restyle_api.json",
+                "path": "/workspace/workflows/wan2_1_vace_depth_restyle_api.json",
+                "url": "",
+                "source_repo_path": "runpod/workflows/source/Wan2.1_VACE_control_pose.json",
+                "ui_source_path": "/workspace/workflows/source/Wan2.1_VACE_control_pose.json",
+                "ui_source_url": "https://comfyui.nomadoor.net/workflows/basic-workflows/wan-2-1-vace/Wan2.1_VACE_control_pose.json"
+            },
+            "reference_image": {
+                "set_node": "83",
+                "input": "reference_image",
+                "notes": "Optional style/theme reference image. No first-frame fallback is used because this workflow is intended to repaint the source appearance while preserving depth structure."
+            },
+            "patches": {
+                "prompt": [
+                    {
+                        "node": "6",
+                        "input": "text"
+                    }
+                ],
+                "video": [
+                    {
+                        "node": "84",
+                        "input": "video"
+                    }
+                ],
+                "reference_images": [],
+                "width": [
+                    {
+                        "node": "83",
+                        "input": "width"
+                    },
+                    {
+                        "node": "153",
+                        "input": "width"
+                    }
+                ],
+                "height": [
+                    {
+                        "node": "83",
+                        "input": "height"
+                    },
+                    {
+                        "node": "153",
+                        "input": "height"
+                    }
+                ],
+                "fps": [],
+                "seed": [
+                    {
+                        "node": "3",
+                        "input": "seed"
+                    }
+                ],
+                "retake_start": [],
+                "retake_end": [],
+                "transform_strength": [
+                    {
+                        "node": "83",
+                        "input": "strength"
+                    },
+                    {
+                        "node": "3",
+                        "input": "denoise"
+                    }
+                ],
+                "prompt_cfg": [],
+                "nag_scale": []
+            },
+            "static_patches": [
+                {
+                    "node": "3",
+                    "input": "steps",
+                    "value": 16
+                },
+                {
+                    "node": "3",
+                    "input": "cfg",
+                    "value": 5.0
+                },
+                {
+                    "node": "84",
+                    "input": "force_rate",
+                    "value": 16
+                },
+                {
+                    "node": "84",
+                    "input": "frame_load_cap",
+                    "value": 161
+                },
+                {
+                    "node": "84",
+                    "input": "format",
+                    "value": "Wan"
+                },
+                {
+                    "node": "149",
+                    "input": "ckpt_name",
+                    "value": "depth_anything_v2_vitl.pth"
+                },
+                {
+                    "node": "149",
+                    "input": "resolution",
+                    "value": 512
+                },
+                {
+                    "node": "113",
+                    "input": "frame_rate",
+                    "value": 16
+                },
+                {
+                    "node": "113",
+                    "input": "save_output",
+                    "value": true
+                },
+                {
+                    "node": "113",
+                    "input": "filename_prefix",
+                    "value": "wan21_vace_depth_restyle"
+                }
+            ]
+        },
+        {
+            "id": "wan21_vace_v2v",
+            "label": "Wan 2.1 VACE Pose V2V",
+            "type": "video_to_video",
+            "enabled": true,
+            "model_set": "wan21_vace",
+            "limits": {
+                "max_duration_seconds": 60,
+                "target_height": 720,
+                "recommended_frame_cap": 161
+            },
+            "workflow": {
+                "repo_path": "runpod/workflows/api/wan2_1_vace_v2v_api.json",
+                "path": "/workspace/workflows/wan2_1_vace_v2v_api.json",
+                "url": "",
+                "source_repo_path": "runpod/workflows/source/Wan2.1_VACE_control_pose.json",
+                "ui_source_path": "/workspace/workflows/source/Wan2.1_VACE_control_pose.json",
+                "ui_source_url": "https://comfyui.nomadoor.net/workflows/basic-workflows/wan-2-1-vace/Wan2.1_VACE_control_pose.json"
+            },
+            "reference_image": {
+                "set_node": "83",
+                "input": "reference_image",
+                "notes": "Optional VACE reference image for style or character guidance. No first-frame fallback is used because that can over-preserve the source appearance."
+            },
+            "patches": {
+                "prompt": [
+                    {
+                        "node": "6",
+                        "input": "text"
+                    }
+                ],
+                "video": [
+                    {
+                        "node": "84",
+                        "input": "video"
+                    }
+                ],
+                "reference_images": [],
+                "width": [
+                    {
+                        "node": "83",
+                        "input": "width"
+                    },
+                    {
+                        "node": "153",
+                        "input": "width"
+                    }
+                ],
+                "height": [
+                    {
+                        "node": "83",
+                        "input": "height"
+                    },
+                    {
+                        "node": "153",
+                        "input": "height"
+                    }
+                ],
+                "fps": [],
+                "seed": [
+                    {
+                        "node": "3",
+                        "input": "seed"
+                    }
+                ],
+                "retake_start": [],
+                "retake_end": [],
+                "transform_strength": [
+                    {
+                        "node": "83",
+                        "input": "strength"
+                    },
+                    {
+                        "node": "3",
+                        "input": "denoise"
+                    }
+                ],
+                "prompt_cfg": [],
+                "nag_scale": []
+            },
+            "static_patches": [
+                {
+                    "node": "3",
+                    "input": "steps",
+                    "value": 16
+                },
+                {
+                    "node": "3",
+                    "input": "cfg",
+                    "value": 5.0
+                },
+                {
+                    "node": "84",
+                    "input": "force_rate",
+                    "value": 16
+                },
+                {
+                    "node": "113",
+                    "input": "frame_rate",
+                    "value": 16
+                },
+                {
+                    "node": "84",
+                    "input": "frame_load_cap",
+                    "value": 161
+                },
+                {
+                    "node": "84",
+                    "input": "format",
+                    "value": "Wan"
+                },
+                {
+                    "node": "149",
+                    "input": "detect_face",
+                    "value": "enable"
+                },
+                {
+                    "node": "149",
+                    "input": "detect_body",
+                    "value": "enable"
+                },
+                {
+                    "node": "149",
+                    "input": "detect_hand",
+                    "value": "enable"
+                },
+                {
+                    "node": "113",
+                    "input": "save_output",
+                    "value": true
+                },
+                {
+                    "node": "113",
+                    "input": "filename_prefix",
+                    "value": "wan21_vace_v2v"
+                }
+            ]
+        },
+        {
             "id": "wan21_fun_control_v2v",
             "label": "Wan 2.1 Fun Control V2V",
             "type": "video_to_video",
@@ -67,7 +349,7 @@
             "limits": {
                 "max_duration_seconds": 60,
                 "target_height": 720,
-                "recommended_frame_cap": 81
+                "recommended_frame_cap": 161
             },
             "workflow": {
                 "repo_path": "runpod/workflows/api/wan2_1_fun_control_v2v_api.json",
@@ -142,7 +424,7 @@
                 {
                     "node": "76",
                     "input": "frame_load_cap",
-                    "value": 81
+                    "value": 161
                 },
                 {
                     "node": "91",

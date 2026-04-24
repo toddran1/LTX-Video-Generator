@@ -99,6 +99,12 @@ Install the stronger Wan 2.1 Fun Control video-to-video backend:
 bash runpod/setup_wan21_fun_control_v2v.sh
 ```
 
+Install the experimental Wan 2.1 VACE video editing backend:
+
+```bash
+bash runpod/setup_wan21_vace_v2v.sh
+```
+
 Check storage estimates and missing files:
 
 ```bash
@@ -165,18 +171,26 @@ MODEL_ROOT=/dev/shm/ltx23-models bash runpod/setup_ltx23.sh
 
 ## Video-To-Video Backends
 
-The app currently exposes two video-to-video backends:
+The app currently exposes four video-to-video backends:
 
 ```text
+Wan 2.1 VACE Depth Restyle
+Wan 2.1 VACE Pose V2V
 Wan 2.1 Fun Control V2V
 LTX 2.3 V2V ReTake
 ```
 
-Use **Wan 2.1 Fun Control V2V** first for full-style transformation tests such as anime-to-realism or stronger scene restyling. It uses the input video as a control video, applies prompt conditioning, and uses the first uploaded reference image as the start/reference image. If no reference image is uploaded, the app extracts the first frame from the input video.
+Use **Wan 2.1 VACE Depth Restyle** first for full-style transformation tests such as anime-to-realism or stronger scene restyling. It extracts Depth Anything V2 structure from the source video so the generated clip can preserve scene geometry, camera structure, and subject placement while repainting the visual style.
+
+Use **Wan 2.1 VACE Pose V2V** for motion or character experiments where human/body motion matters more than preserving the exact source scene. It extracts OpenPose motion from the source video, so it gives the model more freedom to invent a new environment.
+
+Both VACE workflows use the 14B VACE model with a Q4 GGUF quantization so it can fit alongside the existing test models.
+
+Use **Wan 2.1 Fun Control V2V** for controlled motion experiments where preserving the original pose/structure is more important than aggressive style replacement. In testing, this backend can over-preserve the source appearance, so it is not the best first choice for anime-to-realism or full-scene restyling.
 
 Use **LTX 2.3 V2V ReTake** for lighter retake/editing tests where preserving the original structure is more important than replacing the visual style. That backend is useful, but it is not the best fit for converting an entire anime clip into realistic footage.
 
-The initial Wan workflow caps each generation to 81 loaded frames to keep testing practical on one A100. Longer 60 second inputs need chunking and stitching before they are practical at 720p. The provider structure is set up so that chunking, upscaling, interpolation, identity-preservation passes, and alternate backends can be added without changing the original LTX text/image flow.
+The initial Wan workflow caps each generation to 161 loaded frames to keep testing practical on one A100. Longer 60 second inputs need chunking and stitching before they are practical at 720p. The provider structure is set up so that chunking, upscaling, interpolation, identity-preservation passes, and alternate backends can be added without changing the original LTX text/image flow.
 
 ## Launch The Gradio UI
 
@@ -219,12 +233,21 @@ The first number is your Mac's local port. The second number is the pod's Gradio
 
 ## Operations Commands
 
-Watch the combined Gradio and ComfyUI logs:
+Watch the Gradio app logs:
 
 ```bash
 cd /workspace/modal-notebook
 tail -f runpod/ui.log
 ```
+
+Watch the ComfyUI render logs:
+
+```bash
+tail -f /workspace/ComfyUI/comfyui.log
+```
+
+The app also reads the ComfyUI log while a job is running and shows elapsed time,
+prompt id, percent, step count, and per-step timing in the Gradio progress text.
 
 Check whether the UI and ComfyUI backend are running:
 
@@ -394,6 +417,7 @@ The detailed design is in `runpod/ARCHITECTURE.md`.
 
 ```bash
 COMFY_PATH=/workspace/ComfyUI
+COMFY_LOG_PATH=/workspace/ComfyUI/comfyui.log
 VENV_PATH=/opt/venvs/ltx23
 MODEL_ROOT=/workspace/ComfyUI/models
 PIP_CACHE_DIR=/tmp/pip-cache-ltx23

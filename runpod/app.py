@@ -56,6 +56,7 @@ def generate_v2v_video(
     reference_files,
     target_width,
     target_height,
+    output_resolution,
     seed,
     preserve_audio,
     retake_full_video,
@@ -75,6 +76,7 @@ def generate_v2v_video(
         reference_files=reference_files,
         target_width=target_width,
         target_height=target_height,
+        output_resolution=output_resolution,
         seed=seed,
         preserve_audio=preserve_audio,
         retake_full_video=retake_full_video,
@@ -141,8 +143,13 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
                     "LTX ReTake uses the first uploaded image as its image guidance reference."
                 )
                 with gr.Row():
-                    v2v_width_slider = gr.Slider(minimum=256, maximum=1280, step=32, value=1280, label="Target Width")
-                    v2v_height_slider = gr.Slider(minimum=256, maximum=720, step=32, value=720, label="Target Height")
+                    v2v_width_slider = gr.Slider(minimum=256, maximum=1280, step=16, value=848, label="Base Generation Width")
+                    v2v_height_slider = gr.Slider(minimum=256, maximum=720, step=16, value=480, label="Base Generation Height")
+                output_resolution_input = gr.Dropdown(
+                    choices=["720p", "1080p"],
+                    value="720p",
+                    label="Upscaled Output Resolution",
+                )
                 with gr.Row():
                     v2v_seed_input = gr.Number(value=43, label="Seed", precision=0)
                     preserve_audio_input = gr.Checkbox(value=True, label="Preserve Original Audio")
@@ -206,6 +213,7 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
             v2v_reference_input,
             v2v_width_slider,
             v2v_height_slider,
+            output_resolution_input,
             v2v_seed_input,
             preserve_audio_input,
             retake_full_video_input,

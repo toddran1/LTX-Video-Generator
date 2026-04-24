@@ -1,6 +1,7 @@
 import glob
 import json
 import os
+import re
 import socket
 import subprocess
 import time
@@ -16,6 +17,10 @@ class ComfyClient:
         self.port = int(port)
         self.output_path = os.path.join(comfy_path, "output")
         self.input_path = os.path.join(comfy_path, "input")
+        self.log_path = os.environ.get(
+            "COMFY_LOG_PATH",
+            os.path.join(comfy_path, "comfyui.log"),
+        )
 
     def is_running(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -28,9 +33,16 @@ class ComfyClient:
             )
 
         os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+        os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+        log_file = open(self.log_path, "a", encoding="utf-8")
         subprocess.Popen(
             ["python", "main.py", "--listen", "127.0.0.1", "--port", str(self.port)],
             cwd=self.comfy_path,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            env=env,
         )
 
         start_time = time.time()
@@ -53,6 +65,7 @@ class ComfyClient:
             raise RuntimeError(f"ComfyUI API error: {error.read().decode()}") from error
 
     def wait_for_prompt(self, prompt_id, progress):
+        started_at = time.time()
         while True:
             try:
                 with urllib.request.urlopen(
@@ -73,8 +86,60 @@ class ComfyClient:
             except Exception:
                 pass
 
-            progress(0.5, desc="Rendering video...")
+            percent, status = self.render_status(prompt_id, started_at)
+            progress(percent, desc=status)
             time.sleep(3)
+
+    def render_status(self, prompt_id, started_at):
+        elapsed = self._format_duration(time.time() - started_at)
+        latest_step = self._latest_step_line()
+        percent = 0.5
+        message = f"Rendering video... elapsed {elapsed}; prompt {prompt_id}"
+
+        if latest_step:
+            step_percent = self._step_percent(latest_step)
+            if step_percent is not None:
+                percent = 0.2 + (step_percent * 0.7)
+            message = f"{latest_step} | elapsed {elapsed}; prompt {prompt_id}"
+
+        return min(max(percent, 0.2), 0.9), message
+
+    def _latest_step_line(self):
+        if not os.path.exists(self.log_path):
+            return None
+
+        try:
+            with open(self.log_path, "rb") as log_file:
+                log_file.seek(0, os.SEEK_END)
+                size = log_file.tell()
+                log_file.seek(max(0, size - 200_000))
+                text = log_file.read().decode("utf-8", errors="ignore")
+        except OSError:
+            return None
+
+        text = text.replace("\x00", "")
+        candidates = re.split(r"[\r\n]+", text)
+        for line in reversed(candidates):
+            cleaned = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", line).strip()
+            if re.search(r"\d+%\|.*\|\s*\d+/\d+\s*\[", cleaned):
+                return cleaned
+        return None
+
+    def _step_percent(self, step_line):
+        match = re.search(r"(\d+)%\|", step_line)
+        if not match:
+            return None
+        return int(match.group(1)) / 100
+
+    def _format_duration(self, seconds):
+        seconds = int(seconds)
+        hours, remainder = divmod(seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        if hours:
+            return f"{hours}h {minutes}m {seconds}s"
+        if minutes:
+            return f"{minutes}m {seconds}s"
+        return f"{seconds}s"
 
     def latest_video(self, since=None):
         videos = glob.glob(f"{self.output_path}/**/*.mp4", recursive=True)

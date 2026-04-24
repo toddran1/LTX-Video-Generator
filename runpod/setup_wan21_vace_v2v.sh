@@ -7,7 +7,7 @@ NETWORK_ROOT="${NETWORK_ROOT:-/workspace}"
 WORKFLOW_ROOT="${WORKFLOW_ROOT:-${NETWORK_ROOT}/workflows}"
 PYTHON_BIN="${PYTHON_BIN:-/opt/venvs/ltx23/bin/python}"
 
-echo "[1/5] Preparing Wan 2.1 Fun Control storage"
+echo "[1/5] Preparing Wan 2.1 VACE storage"
 if [ ! -d "${COMFY_PATH}" ]; then
   echo "ComfyUI was not found at ${COMFY_PATH}. Run runpod/setup_ltx23.sh first."
   exit 1
@@ -21,8 +21,8 @@ fi
 mkdir -p \
   "${WORKFLOW_ROOT}/source" \
   "${WORKFLOW_ROOT}" \
-  "${MODEL_ROOT}/clip_vision" \
   "${MODEL_ROOT}/diffusion_models" \
+  "${MODEL_ROOT}/unet" \
   "${MODEL_ROOT}/text_encoders" \
   "${MODEL_ROOT}/vae"
 
@@ -63,10 +63,14 @@ download_file() {
   fi
 }
 
-echo "[2/5] Installing Wan V2V custom nodes"
+echo "[2/5] Installing VACE custom nodes"
 install_custom_node \
   "https://github.com/Fannovel16/comfyui_controlnet_aux.git" \
   "${COMFY_PATH}/custom_nodes/comfyui_controlnet_aux"
+
+install_custom_node \
+  "https://github.com/kijai/ComfyUI-KJNodes.git" \
+  "${COMFY_PATH}/custom_nodes/ComfyUI-KJNodes"
 
 if [ ! -d "${COMFY_PATH}/custom_nodes/ComfyUI-VideoHelperSuite/.git" ]; then
   install_custom_node \
@@ -74,11 +78,11 @@ if [ ! -d "${COMFY_PATH}/custom_nodes/ComfyUI-VideoHelperSuite/.git" ]; then
     "${COMFY_PATH}/custom_nodes/ComfyUI-VideoHelperSuite"
 fi
 
-echo "[3/5] Downloading Wan 2.1 Fun Control models"
+echo "[3/5] Downloading Wan 2.1 VACE models"
 download_file \
-  "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_fun_control_1.3B_bf16.safetensors" \
-  "${MODEL_ROOT}/diffusion_models" \
-  "wan2.1_fun_control_1.3B_bf16.safetensors"
+  "https://huggingface.co/QuantStack/Wan2.1_14B_VACE-GGUF/resolve/main/Wan2.1_14B_VACE-Q4_K_M.gguf" \
+  "${MODEL_ROOT}/unet" \
+  "Wan2.1_14B_VACE-Q4_K_M.gguf"
 
 download_file \
   "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
@@ -90,21 +94,19 @@ download_file \
   "${MODEL_ROOT}/vae" \
   "wan_2.1_vae.safetensors"
 
-download_file \
-  "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors" \
-  "${MODEL_ROOT}/clip_vision" \
-  "clip_vision_h.safetensors"
-
-echo "[4/5] Syncing Wan workflow files"
+echo "[4/5] Syncing VACE workflow files"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cp -f \
-  "${repo_root}/runpod/workflows/source/wan2_1_fun_control_v2v_custom_nodes.json" \
-  "${WORKFLOW_ROOT}/source/wan2_1_fun_control_v2v_custom_nodes.json"
+  "${repo_root}/runpod/workflows/source/Wan2.1_VACE_control_pose.json" \
+  "${WORKFLOW_ROOT}/source/Wan2.1_VACE_control_pose.json"
 cp -f \
-  "${repo_root}/runpod/workflows/api/wan2_1_fun_control_v2v_api.json" \
-  "${WORKFLOW_ROOT}/wan2_1_fun_control_v2v_api.json"
+  "${repo_root}/runpod/workflows/api/wan2_1_vace_v2v_api.json" \
+  "${WORKFLOW_ROOT}/wan2_1_vace_v2v_api.json"
+cp -f \
+  "${repo_root}/runpod/workflows/api/wan2_1_vace_depth_restyle_api.json" \
+  "${WORKFLOW_ROOT}/wan2_1_vace_depth_restyle_api.json"
 
-echo "[5/5] Wan 2.1 Fun Control V2V setup complete"
+echo "[5/5] Wan 2.1 VACE V2V setup complete"
 cat <<EOF
 ComfyUI:
   ${COMFY_PATH}
@@ -113,10 +115,15 @@ Models:
   ${MODEL_ROOT}
 
 API workflow:
-  ${WORKFLOW_ROOT}/wan2_1_fun_control_v2v_api.json
+  ${WORKFLOW_ROOT}/wan2_1_vace_v2v_api.json
+  ${WORKFLOW_ROOT}/wan2_1_vace_depth_restyle_api.json
 
 Notes:
-  - First run may download DWpose/OpenPose detector assets for comfyui_controlnet_aux.
-  - This initial workflow caps each generation to 161 loaded frames. Longer 60s inputs
+  - VACE uses a 14B editing model. This setup installs the Q4_K_M GGUF
+    quantization so it can fit alongside the existing test models.
+  - The depth restyle workflow is the first-choice style/theme workflow.
+  - The pose workflow is for motion/character experiments where body motion is
+    more important than scene structure.
+  - These workflows cap each generation to 161 loaded frames. Longer 60s inputs
     need chunking/stitching before they are practical at 720p.
 EOF

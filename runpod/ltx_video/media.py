@@ -174,3 +174,32 @@ def mux_original_audio(generated_video, source_video, output_dir):
     ]
     subprocess.run(command, check=True, capture_output=True, text=True)
     return output_path
+
+
+def upscale_video(source_video, output_dir, width, height):
+    require_binary("ffmpeg")
+    os.makedirs(output_dir, exist_ok=True)
+    base = os.path.splitext(os.path.basename(source_video))[0]
+    output_path = os.path.join(output_dir, f"{base}_{width}x{height}_{int(time.time())}.mp4")
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        source_video,
+        "-vf",
+        f"scale={width}:{height}:flags=lanczos",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "medium",
+        "-crf",
+        "18",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        "-an",
+        output_path,
+    ]
+    subprocess.run(command, check=True, capture_output=True, text=True)
+    return output_path

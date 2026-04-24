@@ -66,9 +66,11 @@ It validates video metadata with `ffprobe`, copies inputs into ComfyUI's input d
 - enabled backends
 - workflow patch maps for configurable ComfyUI providers
 
-The app currently has two video-to-video backends:
+The app currently has four video-to-video backends:
 
-- `wan21_fun_control_v2v`: stronger prompt/reference driven transformation using Wan 2.1 Fun Control.
+- `wan21_vace_depth_restyle`: first-choice style/theme transformation path using Wan 2.1 VACE with Depth Anything V2 structural control.
+- `wan21_vace_v2v`: pose/motion path using Wan 2.1 VACE with OpenPose control.
+- `wan21_fun_control_v2v`: motion-control experiment using Wan 2.1 Fun Control.
 - `ltx23_v2v_retake`: LTX-native retake/edit workflow for lighter changes.
 
 `ltx23_v2v_retake` is based on the RuneXX community LTX 2.3 ReTake workflow source on Hugging Face:
@@ -180,18 +182,31 @@ The Wan Fun Control backend uses a different reference strategy:
 
 `mode: load_image_input` means the provider patches the existing `LoadImage.image` widget directly instead of inserting another image loader node. `fallback: first_frame` means a prompt-only video-to-video request still has a valid Wan start/reference image by extracting frame 0 from the input video with `ffmpeg`.
 
+The Wan VACE backends use an optional reference image without first-frame fallback:
+
+```json
+"reference_image": {
+  "set_node": "83",
+  "input": "reference_image"
+}
+```
+
+VACE receives the input video through `VHS_LoadVideo`, derives a control video, and lets the prompt/reference image drive the new visual appearance. The depth restyle workflow uses `DepthAnythingV2Preprocessor` as the control source. The pose workflow uses `OpenposePreprocessor`. Avoiding a first-frame fallback is intentional because feeding the original first frame back as a reference can over-preserve the source appearance during style-conversion tests.
+
 ## Initial Video-To-Video Integration Strategy
 
 Use a ComfyUI workflow that supports video loading, prompt conditioning, optional reference image conditioning, and video saving.
 
 The current strategy is:
 
-- Use Wan 2.1 Fun Control for stronger prompt/reference driven transformation and style conversion tests.
+- Use Wan 2.1 VACE Depth Restyle first for stronger prompt/reference driven transformation and style conversion tests.
+- Use Wan 2.1 VACE Pose V2V for motion and future character/identity experiments.
+- Keep Wan 2.1 Fun Control as a lighter motion-control backend, but do not treat it as the primary restyle solution.
 - Keep LTX 2.3 ReTake for lighter retake/editing workflows where preserving the source structure matters more than changing the whole visual style.
 
-The first Wan API workflow is derived from the official ComfyUI Wan 2.1 Fun Control custom-node example and replaces the example WebP output with `VHS_VideoCombine` MP4 output so the existing app can detect and optionally remux audio.
+The VACE API workflow is derived from the ComfyUI Wan 2.1 VACE control-pose workflow and uses the 14B VACE editing model through a Q4 GGUF quantization. It replaces the source editor workflow's output with `VHS_VideoCombine` MP4 output so the existing app can detect and optionally remux audio.
 
-The initial Wan backend is capped to 81 loaded frames by static workflow patch. That is intentional for early A100 testing. Full 60 second 720p support should be implemented as chunked generation plus stitch/remux, rather than trying to push every frame through one ComfyUI prompt.
+The initial Wan backends are capped to 161 loaded frames by static workflow patch. That is intentional for early A100 testing. Full 60 second 720p support should be implemented as chunked generation plus stitch/remux, rather than trying to push every frame through one ComfyUI prompt.
 
 The app does not add prompt filtering or app-level topic restrictions. Model behavior depends on the chosen backend and weights.
 
