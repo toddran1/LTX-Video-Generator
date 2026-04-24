@@ -73,6 +73,10 @@ def _job_details(job):
     if job.get("error"):
         lines.append(f"Error: `{job['error']}`")
     request = job.get("request", {})
+    if request.get("reference_mode"):
+        lines.append(f"Reference Mode: `{request['reference_mode']}`")
+    if request.get("reference_index"):
+        lines.append(f"Reference Index: `{request['reference_index']}`")
     if request.get("prompt"):
         lines.append("")
         lines.append("Prompt:")
@@ -188,6 +192,8 @@ def _run_v2v_job(job_record, progress):
             input_video=request["input_video"],
             prompt=request["prompt"],
             reference_files=request["reference_files"],
+            reference_mode=request.get("reference_mode", "first"),
+            reference_index=request.get("reference_index", 1),
             target_width=request["target_width"],
             target_height=request["target_height"],
             output_resolution=request["output_resolution"],
@@ -215,6 +221,8 @@ def generate_v2v_video(
     input_video,
     prompt,
     reference_files,
+    reference_mode,
+    reference_index,
     target_width,
     target_height,
     output_resolution,
@@ -247,6 +255,8 @@ def generate_v2v_video(
             "request": {
                 "input_video": persisted_video,
                 "reference_files": persisted_references,
+                "reference_mode": reference_mode,
+                "reference_index": int(reference_index),
                 "prompt": prompt,
                 "target_width": int(target_width),
                 "target_height": int(target_height),
@@ -352,10 +362,26 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
                     file_types=["image"],
                     label="Reference Images",
                 )
+                with gr.Row():
+                    reference_mode_input = gr.Dropdown(
+                        choices=[
+                            ("Use First Uploaded Reference", "first"),
+                            ("Use Specific Uploaded Reference", "specific"),
+                            ("Create Montage From All References", "montage"),
+                        ],
+                        value="first",
+                        label="Reference Handling",
+                    )
+                    reference_index_input = gr.Number(
+                        value=1,
+                        label="Reference Index (1-based)",
+                        precision=0,
+                        visible=False,
+                    )
                 gr.Markdown(
-                    "Reference images are backend-dependent. Wan Fun Control uses the first uploaded image as "
-                    "the start/reference image, or extracts the first video frame when no image is uploaded. "
-                    "LTX ReTake uses the first uploaded image as its image guidance reference."
+                    "These workflows accept one actual reference image at inference time. "
+                    "Use Reference Handling to choose the first uploaded image, select a specific uploaded image, "
+                    "or combine multiple uploads into a single montage guide image."
                 )
                 with gr.Row():
                     v2v_width_slider = gr.Slider(minimum=256, maximum=1280, step=16, value=848, label="Base Generation Width")
@@ -421,7 +447,15 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
     def update_visibility(mode):
         return gr.update(visible=(mode == "Image-to-Video"))
 
+    def update_reference_index_visibility(reference_mode):
+        return gr.update(visible=(reference_mode == "specific"))
+
     mode_selector.change(fn=update_visibility, inputs=mode_selector, outputs=image_input)
+    reference_mode_input.change(
+        fn=update_reference_index_visibility,
+        inputs=reference_mode_input,
+        outputs=reference_index_input,
+    )
     generate_btn.click(
         fn=generate_ltx_video,
         inputs=[
@@ -442,6 +476,8 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
             v2v_video_input,
             v2v_prompt_input,
             v2v_reference_input,
+            reference_mode_input,
+            reference_index_input,
             v2v_width_slider,
             v2v_height_slider,
             output_resolution_input,

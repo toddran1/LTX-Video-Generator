@@ -1,8 +1,11 @@
 import json
+import math
 import os
 import shutil
 import subprocess
 import time
+
+from PIL import Image
 
 
 SUPPORTED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm"}
@@ -203,3 +206,29 @@ def upscale_video(source_video, output_dir, width, height):
     ]
     subprocess.run(command, check=True, capture_output=True, text=True)
     return output_path
+
+
+def build_reference_montage(reference_paths, destination):
+    if not reference_paths:
+        raise MediaValidationError("Upload one or more reference images.")
+
+    images = []
+    for path in reference_paths:
+        with Image.open(path) as image:
+            images.append(image.convert("RGB"))
+
+    tile_size = 512
+    columns = 1 if len(images) == 1 else 2
+    rows = math.ceil(len(images) / columns)
+    canvas = Image.new("RGB", (columns * tile_size, rows * tile_size), "black")
+
+    for index, image in enumerate(images):
+        image = image.copy()
+        image.thumbnail((tile_size, tile_size), Image.Resampling.LANCZOS)
+        x = (index % columns) * tile_size + (tile_size - image.width) // 2
+        y = (index // columns) * tile_size + (tile_size - image.height) // 2
+        canvas.paste(image, (x, y))
+
+    os.makedirs(os.path.dirname(destination), exist_ok=True)
+    canvas.save(destination, format="PNG")
+    return destination

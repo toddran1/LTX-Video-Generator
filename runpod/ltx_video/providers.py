@@ -8,6 +8,7 @@ from PIL import Image
 from .comfy import load_workflow
 from .media import (
     MediaValidationError,
+    build_reference_montage,
     copy_video_for_audio_workflow,
     extract_first_frame,
     mux_original_audio,
@@ -272,11 +273,33 @@ class ComfyVideoToVideoProvider:
         extract_first_frame(input_video, destination)
         return filename
 
+    def _resolve_reference_files(self, reference_files, reference_mode, reference_index):
+        reference_files = [path for path in (reference_files or []) if path]
+        if not reference_files:
+            return []
+
+        if reference_mode == "specific":
+            selected_index = max(1, int(reference_index or 1)) - 1
+            selected_index = min(selected_index, len(reference_files) - 1)
+            return [reference_files[selected_index]]
+
+        if reference_mode == "montage":
+            montage_path = os.path.join(
+                self.comfy.input_path,
+                f"v2v_reference_montage_{int(time.time() * 1000)}.png",
+            )
+            build_reference_montage(reference_files, montage_path)
+            return [montage_path]
+
+        return [reference_files[0]]
+
     def generate(
         self,
         input_video,
         prompt,
         reference_files,
+        reference_mode,
+        reference_index,
         target_width,
         target_height,
         output_resolution,
@@ -317,6 +340,7 @@ class ComfyVideoToVideoProvider:
         progress(0, desc="Starting ComfyUI...")
         self.comfy.ensure_running()
         os.makedirs(self.comfy.input_path, exist_ok=True)
+        reference_files = self._resolve_reference_files(reference_files, reference_mode, reference_index)
 
         progress(0.1, desc="Preparing video-to-video inputs...")
         try:
