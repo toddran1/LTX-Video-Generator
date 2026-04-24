@@ -90,6 +90,19 @@ class ComfyClient:
             progress(percent, desc=status)
             time.sleep(3)
 
+    def queue_state(self):
+        with urllib.request.urlopen(f"http://127.0.0.1:{self.port}/queue") as response:
+            return json.loads(response.read())
+
+    def interrupt(self):
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/interrupt",
+            data=b"{}",
+            method="POST",
+        )
+        with urllib.request.urlopen(request) as response:
+            return response.read().decode("utf-8", errors="ignore")
+
     def render_status(self, prompt_id, started_at):
         elapsed = self._format_duration(time.time() - started_at)
         latest_step = self._latest_step_line()

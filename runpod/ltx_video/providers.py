@@ -289,6 +289,10 @@ class ComfyVideoToVideoProvider:
         prompt_cfg,
         nag_scale,
         progress,
+        job_id=None,
+        on_queued=None,
+        on_completed=None,
+        on_failed=None,
     ):
         if not prompt or not prompt.strip():
             raise gr.Error("Enter a video-to-video prompt.")
@@ -379,10 +383,19 @@ class ComfyVideoToVideoProvider:
         progress(0.2, desc="Queuing video-to-video generation...")
         started_at = time.time()
         prompt_id = self.comfy.queue_prompt(workflow)["prompt_id"]
+        if on_queued:
+            on_queued(
+                prompt_id=prompt_id,
+                started_at=started_at,
+                source_video=input_video,
+                reference_files=reference_files,
+            )
         self.comfy.wait_for_prompt(prompt_id, progress)
 
         video = self.comfy.latest_video(since=started_at)
         if video is None:
+            if on_failed:
+                on_failed("ComfyUI finished but no MP4 output was found.")
             raise gr.Error("ComfyUI finished but no MP4 output was found.")
 
         output_width, output_height = self._output_resolution(output_resolution)
@@ -399,5 +412,11 @@ class ComfyVideoToVideoProvider:
             mux_dir = os.path.join(self.comfy.output_path, "muxed")
             video = mux_original_audio(video, input_video, mux_dir)
 
+        if on_completed:
+            on_completed(
+                output_path=video,
+                completed_at=time.time(),
+                prompt_id=prompt_id,
+            )
         progress(1.0, desc="Done")
         return video
