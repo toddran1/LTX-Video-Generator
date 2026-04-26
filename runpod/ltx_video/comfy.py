@@ -64,7 +64,15 @@ class ComfyClient:
         except urllib.error.HTTPError as error:
             raise RuntimeError(f"ComfyUI API error: {error.read().decode()}") from error
 
-    def wait_for_prompt(self, prompt_id, progress):
+    def log_offset(self):
+        if not os.path.exists(self.log_path):
+            return 0
+        try:
+            return os.path.getsize(self.log_path)
+        except OSError:
+            return 0
+
+    def wait_for_prompt(self, prompt_id, progress, log_offset=0):
         started_at = time.time()
         while True:
             try:
@@ -86,7 +94,7 @@ class ComfyClient:
             except Exception:
                 pass
 
-            percent, status = self.render_status(prompt_id, started_at)
+            percent, status = self.render_status(prompt_id, started_at, log_offset=log_offset)
             progress(percent, desc=status)
             time.sleep(3)
 
@@ -103,9 +111,9 @@ class ComfyClient:
         with urllib.request.urlopen(request) as response:
             return response.read().decode("utf-8", errors="ignore")
 
-    def render_status(self, prompt_id, started_at):
+    def render_status(self, prompt_id, started_at, log_offset=0):
         elapsed = self._format_duration(time.time() - started_at)
-        latest_step = self._latest_step_line()
+        latest_step = self._latest_step_line(log_offset=log_offset)
         percent = 0.5
         message = f"Rendering video... elapsed {elapsed}; prompt {prompt_id}"
 
@@ -117,7 +125,7 @@ class ComfyClient:
 
         return min(max(percent, 0.2), 0.9), message
 
-    def _latest_step_line(self):
+    def _latest_step_line(self, log_offset=0):
         if not os.path.exists(self.log_path):
             return None
 
@@ -125,7 +133,8 @@ class ComfyClient:
             with open(self.log_path, "rb") as log_file:
                 log_file.seek(0, os.SEEK_END)
                 size = log_file.tell()
-                log_file.seek(max(0, size - 200_000))
+                start = max(int(log_offset or 0), size - 200_000, 0)
+                log_file.seek(start)
                 text = log_file.read().decode("utf-8", errors="ignore")
         except OSError:
             return None

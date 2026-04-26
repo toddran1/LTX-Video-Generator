@@ -92,9 +92,14 @@ def _active_job_markdown():
     status = job.get("status", "unknown")
     prompt_id = job.get("prompt_id")
     started_at = job.get("started_at") or job.get("created_at")
+    log_offset = job.get("log_offset", 0)
     if prompt_id and status in {"running", "starting", "cancelling"} and comfy.is_running():
         try:
-            _, render_status = comfy.render_status(prompt_id, started_at or job.get("updated_at", 0))
+            _, render_status = comfy.render_status(
+                prompt_id,
+                started_at or job.get("updated_at", 0),
+                log_offset=log_offset,
+            )
             return (
                 f"Active Job: `{job['id']}`\n\n"
                 f"Backend: `{job.get('backend_label', 'unknown')}`\n\n"
@@ -164,12 +169,13 @@ def _run_v2v_job(job_record, progress):
     request = job_record["request"]
     provider = v2v_provider_by_label[backend_label]
 
-    def on_queued(prompt_id, started_at, source_video, reference_files):
+    def on_queued(prompt_id, started_at, log_offset, source_video, reference_files):
         update_job(
             job_record["id"],
             status="running",
             prompt_id=prompt_id,
             started_at=started_at,
+            log_offset=log_offset,
             source_video=source_video,
             reference_files=reference_files,
         )

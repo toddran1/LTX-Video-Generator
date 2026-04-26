@@ -79,8 +79,9 @@ class LtxTextImageProvider:
 
         progress(0.2, desc="Queuing generation...")
         started_at = time.time()
+        log_offset = self.comfy.log_offset()
         prompt_id = self.comfy.queue_prompt(workflow)["prompt_id"]
-        self.comfy.wait_for_prompt(prompt_id, progress)
+        self.comfy.wait_for_prompt(prompt_id, progress, log_offset=log_offset)
 
         video = self.comfy.latest_video(since=started_at)
         if video is None:
@@ -406,15 +407,17 @@ class ComfyVideoToVideoProvider:
 
         progress(0.2, desc="Queuing video-to-video generation...")
         started_at = time.time()
+        log_offset = self.comfy.log_offset()
         prompt_id = self.comfy.queue_prompt(workflow)["prompt_id"]
         if on_queued:
             on_queued(
                 prompt_id=prompt_id,
                 started_at=started_at,
+                log_offset=log_offset,
                 source_video=input_video,
                 reference_files=reference_files,
             )
-        self.comfy.wait_for_prompt(prompt_id, progress)
+        self.comfy.wait_for_prompt(prompt_id, progress, log_offset=log_offset)
 
         video = self.comfy.latest_video(since=started_at)
         if video is None:
