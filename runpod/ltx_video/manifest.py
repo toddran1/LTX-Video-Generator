@@ -28,3 +28,10 @@ def enabled_v2v_backends(manifest):
         if backend.get("type") == "video_to_video" and backend.get("enabled", False)
     ]
 
+
+def enabled_image_backends(manifest):
+    return [
+        backend
+        for backend in manifest.get("backends", [])
+        if backend.get("type") == "image_generation" and backend.get("enabled", False)
+    ]

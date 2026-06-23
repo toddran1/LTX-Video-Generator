@@ -27,6 +27,23 @@
             ]
         },
         {
+            "id": "flux2_klein_image",
+            "label": "FLUX.2 Klein image generation/editing stack",
+            "required": false,
+            "estimated_gb": 25,
+            "paths": [],
+            "notes": "Register exact model paths after choosing the exported ComfyUI FLUX.2 Klein workflow. The ponpoke text encoder can be used by patching the workflow's text encoder loader to that model filename."
+        },
+        {
+            "id": "sdxl_turbo_image_test",
+            "label": "SDXL Turbo image smoke-test stack",
+            "required": false,
+            "estimated_gb": 7,
+            "paths": [
+                "/workspace/ComfyUI/models/checkpoints/sd_xl_turbo_1.0_fp16.safetensors"
+            ]
+        },
+        {
             "id": "v2v_initial_backend",
             "label": "RuneXX LTX 2.3 ReTake video-to-video backend",
             "required": false,
@@ -68,6 +85,113 @@
             "type": "text_image_to_video",
             "enabled": true,
             "model_set": "ltx23_gguf"
+        },
+        {
+            "id": "sdxl_turbo_image_generation",
+            "label": "SDXL Turbo Image Test",
+            "type": "image_generation",
+            "enabled": true,
+            "model_set": "sdxl_turbo_image_test",
+            "workflow": {
+                "repo_path": "runpod/workflows/api/sdxl_turbo_image_api.json",
+                "path": "/workspace/workflows/sdxl_turbo_image_api.json",
+                "url": "",
+                "source_repo_path": "",
+                "ui_source_path": "",
+                "ui_source_url": ""
+            },
+            "reference_images": {
+                "mode": "disabled",
+                "notes": "Text-to-image smoke-test workflow. It verifies the /image-generation route, ComfyUI queueing, and image output path before the FLUX.2 editing workflow is installed."
+            },
+            "patches": {
+                "prompt": [
+                    {
+                        "node": "6",
+                        "input": "text"
+                    }
+                ],
+                "negative_prompt": [
+                    {
+                        "node": "7",
+                        "input": "text"
+                    }
+                ],
+                "width": [
+                    {
+                        "node": "5",
+                        "input": "width"
+                    }
+                ],
+                "height": [
+                    {
+                        "node": "5",
+                        "input": "height"
+                    }
+                ],
+                "steps": [
+                    {
+                        "node": "3",
+                        "input": "steps"
+                    }
+                ],
+                "cfg": [
+                    {
+                        "node": "3",
+                        "input": "cfg"
+                    }
+                ],
+                "denoise": [
+                    {
+                        "node": "3",
+                        "input": "denoise"
+                    }
+                ],
+                "seed": [
+                    {
+                        "node": "3",
+                        "input": "seed"
+                    }
+                ]
+            },
+            "static_patches": [
+                {
+                    "node": "9",
+                    "input": "filename_prefix",
+                    "value": "image_generation/sdxl_turbo"
+                }
+            ]
+        },
+        {
+            "id": "flux2_klein_image_generation",
+            "label": "FLUX.2 Klein Image Generation",
+            "type": "image_generation",
+            "enabled": true,
+            "model_set": "flux2_klein_image",
+            "workflow": {
+                "repo_path": "runpod/workflows/api/flux2_klein_image_api.json",
+                "path": "/workspace/workflows/flux2_klein_image_api.json",
+                "url": "",
+                "source_repo_path": "runpod/workflows/source/flux2_klein_image_workflow.json",
+                "ui_source_path": "/workspace/workflows/source/flux2_klein_image_workflow.json",
+                "ui_source_url": ""
+            },
+            "reference_images": {
+                "mode": "load_image_nodes",
+                "slots": [],
+                "notes": "Use load_image_nodes with one slot per true image-conditioning input when the selected FLUX.2 workflow supports multiple references. If the workflow only has one reference input, use single_load_image or single_load_image_input and the app's montage reference mode."
+            },
+            "patches": {
+                "prompt": [],
+                "negative_prompt": [],
+                "width": [],
+                "height": [],
+                "steps": [],
+                "cfg": [],
+                "denoise": [],
+                "seed": []
+            },
+            "static_patches": []
         },
         {
             "id": "wan21_vace_depth_restyle",

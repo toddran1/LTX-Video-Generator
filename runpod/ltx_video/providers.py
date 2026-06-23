@@ -447,3 +447,237 @@ class ComfyVideoToVideoProvider:
             )
         progress(1.0, desc="Done")
         return video
+
+
+class ComfyImageProvider:
+    def __init__(self, comfy, backend_config):
+        self.comfy = comfy
+        self.config = backend_config
+
+    @property
+    def label(self):
+        return self.config.get("label", self.config["id"])
+
+    def _resolve_path(self, path):
+        if not path:
+            return None
+        if path.startswith("http://") or path.startswith("https://"):
+            return path
+        if os.path.isabs(path):
+            return path
+        return os.path.join(PROJECT_ROOT, path)
+
+    def _workflow_source(self):
+        workflow = self.config.get("workflow", {})
+        for key in ("repo_path", "path", "url"):
+            source = self._resolve_path(workflow.get(key))
+            if not source:
+                continue
+            if source.startswith("http://") or source.startswith("https://") or os.path.exists(source):
+                return source
+        return self._resolve_path(workflow.get("repo_path") or workflow.get("path") or workflow.get("url"))
+
+    def _copy_to_input(self, path, prefix, extension=None):
+        extension = extension or os.path.splitext(path)[1].lower()
+        filename = f"{prefix}_{int(time.time() * 1000)}{extension}"
+        destination = os.path.join(self.comfy.input_path, filename)
+        shutil.copy(path, destination)
+        return filename
+
+    def _apply_patch(self, workflow, patch, value):
+        node_id = str(patch["node"])
+        input_name = patch["input"]
+        if node_id not in workflow:
+            raise gr.Error(f"Workflow is missing node {node_id} for image backend {self.config['id']}.")
+        workflow[node_id].setdefault("inputs", {})[input_name] = value
+
+    def _apply_patch_group(self, workflow, group_name, value):
+        patches = self.config.get("patches", {}).get(group_name, [])
+        for patch in patches:
+            self._apply_patch(workflow, patch, value)
+
+    def _next_node_id(self, workflow):
+        numeric_ids = [int(node_id) for node_id in workflow.keys() if str(node_id).isdigit()]
+        return str(max(numeric_ids, default=0) + 1)
+
+    def _insert_load_image(self, workflow, image_name):
+        loader_node_id = self._next_node_id(workflow)
+        workflow[loader_node_id] = {
+            "inputs": {
+                "image": image_name,
+            },
+            "class_type": "LoadImage",
+            "_meta": {
+                "title": "Image Generation Reference Loader",
+            },
+        }
+        return loader_node_id
+
+    def _resolve_reference_files(self, reference_files, reference_mode, reference_index):
+        reference_files = [path for path in (reference_files or []) if path]
+        if not reference_files or reference_mode == "none":
+            return []
+
+        if reference_mode == "specific":
+            selected_index = max(1, int(reference_index or 1)) - 1
+            selected_index = min(selected_index, len(reference_files) - 1)
+            return [reference_files[selected_index]]
+
+        if reference_mode == "montage":
+            montage_path = os.path.join(
+                self.comfy.input_path,
+                f"image_reference_montage_{int(time.time() * 1000)}.png",
+            )
+            build_reference_montage(reference_files, montage_path)
+            return [montage_path]
+
+        if reference_mode == "all":
+            return reference_files
+
+        return [reference_files[0]]
+
+    def _apply_reference_images(self, workflow, reference_names, reference_mode):
+        if not reference_names:
+            return
+
+        reference_config = self.config.get("reference_images", {})
+        mode = reference_config.get("mode", "single_load_image")
+
+        if reference_mode == "all" and mode not in {"load_image_nodes", "load_image_inputs"}:
+            raise gr.Error(
+                f"{self.label} does not expose separate multi-reference image inputs. "
+                "Use first, specific, or montage reference handling for this backend."
+            )
+
+        if mode == "disabled":
+            raise gr.Error(f"{self.label} is configured without reference image support.")
+
+        if mode == "single_load_image_input":
+            self._apply_patch(
+                workflow,
+                {
+                    "node": reference_config["set_node"],
+                    "input": reference_config.get("input", "image"),
+                },
+                reference_names[0],
+            )
+            return
+
+        if mode == "single_load_image":
+            loader_node_id = self._insert_load_image(workflow, reference_names[0])
+            self._apply_patch(
+                workflow,
+                {
+                    "node": reference_config["set_node"],
+                    "input": reference_config.get("input", "image"),
+                },
+                [loader_node_id, 0],
+            )
+            return
+
+        slots = reference_config.get("slots", [])
+        if not slots:
+            raise gr.Error(f"{self.label} has no reference image slots configured.")
+
+        for index, image_name in enumerate(reference_names):
+            if index >= len(slots):
+                break
+            slot = slots[index]
+            if mode == "load_image_inputs":
+                value = image_name
+            else:
+                loader_node_id = self._insert_load_image(workflow, image_name)
+                value = [loader_node_id, 0]
+            self._apply_patch(workflow, slot, value)
+
+    def generate(
+        self,
+        prompt,
+        negative_prompt,
+        reference_files,
+        reference_mode,
+        reference_index,
+        width,
+        height,
+        steps,
+        cfg,
+        denoise,
+        seed,
+        progress,
+    ):
+        if not prompt or not prompt.strip():
+            raise gr.Error("Enter an image prompt.")
+
+        if not self.config.get("patches", {}).get("prompt"):
+            raise gr.Error(
+                f"{self.label} needs prompt node patches in runpod/model_manifest.json "
+                "before it can be used."
+            )
+
+        source = self._workflow_source()
+        if not source:
+            raise gr.Error(
+                f"{self.label} is registered but has no workflow JSON configured. "
+                "Add a ComfyUI API workflow path or URL in runpod/model_manifest.json."
+            )
+
+        progress(0, desc="Starting ComfyUI...")
+        self.comfy.ensure_running()
+        os.makedirs(self.comfy.input_path, exist_ok=True)
+        reference_files = [uploaded_path(path) for path in (reference_files or [])]
+        reference_files = [path for path in reference_files if path]
+        reference_files = self._resolve_reference_files(reference_files, reference_mode, reference_index)
+
+        progress(0.1, desc="Preparing image generation workflow...")
+        try:
+            workflow = load_workflow(source)
+        except FileNotFoundError as error:
+            workflow_config = self.config.get("workflow", {})
+            ui_source = (
+                workflow_config.get("source_repo_path")
+                or workflow_config.get("ui_source_path")
+                or workflow_config.get("ui_source_url")
+            )
+            message = (
+                f"{self.label} needs an API workflow JSON at {source}. "
+                "Export a ComfyUI image workflow as API JSON and save it to the configured path."
+            )
+            if ui_source:
+                message += f" Source workflow: {ui_source}"
+            raise gr.Error(message) from error
+        except ValueError as error:
+            raise gr.Error(
+                f"{self.label} is pointed at a ComfyUI editor workflow. Export it as API JSON "
+                "from ComfyUI and update runpod/model_manifest.json."
+            ) from error
+
+        reference_names = []
+        for index, reference_path in enumerate(reference_files):
+            reference_names.append(self._copy_to_input(reference_path, f"image_ref_{index}"))
+
+        width = max(256, round(width / 16) * 16)
+        height = max(256, round(height / 16) * 16)
+        self._apply_patch_group(workflow, "prompt", prompt)
+        self._apply_patch_group(workflow, "negative_prompt", negative_prompt or "")
+        self._apply_patch_group(workflow, "width", width)
+        self._apply_patch_group(workflow, "height", height)
+        self._apply_patch_group(workflow, "steps", int(steps))
+        self._apply_patch_group(workflow, "cfg", float(cfg))
+        self._apply_patch_group(workflow, "denoise", float(denoise))
+        self._apply_patch_group(workflow, "seed", int(seed))
+        self._apply_reference_images(workflow, reference_names, reference_mode)
+        for patch in self.config.get("static_patches", []):
+            self._apply_patch(workflow, patch, patch.get("value"))
+
+        progress(0.2, desc="Queuing image generation...")
+        started_at = time.time()
+        log_offset = self.comfy.log_offset()
+        prompt_id = self.comfy.queue_prompt(workflow)["prompt_id"]
+        self.comfy.wait_for_prompt(prompt_id, progress, log_offset=log_offset)
+
+        image = self.comfy.latest_image(since=started_at)
+        if image is None:
+            raise gr.Error("ComfyUI finished but no image output was found.")
+
+        progress(1.0, desc="Done")
+        return image

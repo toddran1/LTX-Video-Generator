@@ -211,6 +211,14 @@ echo $! > runpod/ui.pid
 
 The app listens on port `7860`. ComfyUI listens on `127.0.0.1:8188` and is started automatically on the first generation.
 
+The dedicated image workspace is mounted at:
+
+```text
+http://127.0.0.1:7860/image-generation
+```
+
+It uses image-generation backends from `runpod/model_manifest.json`. The initial backend entry is for a FLUX.2 Klein ComfyUI workflow and expects an exported API workflow at `runpod/workflows/api/flux2_klein_image_api.json` or `/workspace/workflows/flux2_klein_image_api.json`. Configure the manifest's node patches after exporting the exact workflow you want to run. True separate multi-reference input requires a workflow with multiple image-conditioning slots; otherwise use the page's montage reference mode.
+
 If your pod template exposes HTTP port `7860`, open that endpoint in Runpod. Otherwise, create an SSH tunnel from your Mac:
 
 ```bash

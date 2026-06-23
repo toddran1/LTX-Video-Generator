@@ -4,6 +4,7 @@ import os
 import re
 import socket
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -38,7 +39,7 @@ class ComfyClient:
         os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
         log_file = open(self.log_path, "a", encoding="utf-8")
         subprocess.Popen(
-            ["python", "main.py", "--listen", "127.0.0.1", "--port", str(self.port)],
+            [sys.executable, "main.py", "--listen", "127.0.0.1", "--port", str(self.port)],
             cwd=self.comfy_path,
             stdout=log_file,
             stderr=subprocess.STDOUT,
@@ -115,7 +116,7 @@ class ComfyClient:
         elapsed = self._format_duration(time.time() - started_at)
         latest_step = self._latest_step_line(log_offset=log_offset)
         percent = 0.5
-        message = f"Rendering video... elapsed {elapsed}; prompt {prompt_id}"
+        message = f"Rendering... elapsed {elapsed}; prompt {prompt_id}"
 
         if latest_step:
             step_percent = self._step_percent(latest_step)
@@ -171,6 +172,17 @@ class ComfyClient:
         if not videos:
             return None
         return max(videos, key=os.path.getctime)
+
+    def latest_image(self, since=None):
+        images = []
+        for extension in ("png", "jpg", "jpeg", "webp"):
+            images += glob.glob(f"{self.output_path}/**/*.{extension}", recursive=True)
+            images += glob.glob(f"{self.output_path}/*.{extension}")
+        if since is not None:
+            images = [path for path in images if os.path.getctime(path) >= since]
+        if not images:
+            return None
+        return max(images, key=os.path.getctime)
 
 
 def load_workflow_from_url(url):

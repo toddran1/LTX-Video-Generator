@@ -2,10 +2,17 @@ import os
 from datetime import datetime
 
 import gradio as gr
+import uvicorn
+from fastapi import FastAPI
 
 from ltx_video.comfy import ComfyClient
-from ltx_video.manifest import enabled_v2v_backends, load_manifest
-from ltx_video.providers import ComfyVideoToVideoProvider, LtxTextImageProvider, uploaded_path
+from ltx_video.manifest import enabled_image_backends, enabled_v2v_backends, load_manifest
+from ltx_video.providers import (
+    ComfyImageProvider,
+    ComfyVideoToVideoProvider,
+    LtxTextImageProvider,
+    uploaded_path,
+)
 from ltx_video.runtime_state import (
     create_job,
     get_job,
@@ -33,6 +40,11 @@ v2v_backends = enabled_v2v_backends(manifest)
 v2v_provider_by_label = {
     backend.get("label", backend["id"]): ComfyVideoToVideoProvider(comfy, backend)
     for backend in v2v_backends
+}
+image_backends = enabled_image_backends(manifest)
+image_provider_by_label = {
+    backend.get("label", backend["id"]): ComfyImageProvider(comfy, backend)
+    for backend in image_backends
 }
 
 
@@ -159,6 +171,41 @@ def generate_ltx_video(
         width=width,
         height=height,
         duration=duration,
+        seed=seed,
+        progress=progress,
+    )
+
+
+def generate_image(
+    backend_label,
+    prompt,
+    negative_prompt,
+    reference_files,
+    reference_mode,
+    reference_index,
+    width,
+    height,
+    steps,
+    cfg,
+    denoise,
+    seed,
+    progress=gr.Progress(),
+):
+    if backend_label not in image_provider_by_label:
+        raise gr.Error("No enabled image-generation backend is configured.")
+
+    provider = image_provider_by_label[backend_label]
+    return provider.generate(
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        reference_files=reference_files,
+        reference_mode=reference_mode,
+        reference_index=reference_index,
+        width=width,
+        height=height,
+        steps=steps,
+        cfg=cfg,
+        denoise=denoise,
         seed=seed,
         progress=progress,
     )
@@ -323,6 +370,7 @@ def cancel_active_v2v_job(selected_job_id):
 with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
     gr.Markdown("# LTX 2.3 Video Generator")
     gr.Markdown("Generate and transform videos on a Runpod GPU.")
+    gr.Markdown("Image generation workspace: `/image-generation`")
 
     with gr.Tab("LTX Text / Image"):
         with gr.Row():
@@ -582,10 +630,102 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
     )
 
 
-if __name__ == "__main__":
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=GRADIO_PORT,
-        share=False,
-        allowed_paths=[OUTPUT_PATH],
+with gr.Blocks(theme=gr.themes.Monochrome()) as image_demo:
+    gr.Markdown("# Image Generation")
+    gr.Markdown(
+        "Generate or edit images with a ComfyUI image backend. "
+        "Reference handling is backend-aware: true separate multi-reference inputs require a workflow with multiple image-conditioning slots."
     )
+    with gr.Row():
+        with gr.Column(scale=1):
+            image_backend_choices = list(image_provider_by_label.keys())
+            image_backend_selector = gr.Dropdown(
+                choices=image_backend_choices,
+                value=image_backend_choices[0] if image_backend_choices else None,
+                label="Image Backend",
+            )
+            image_prompt_input = gr.Textbox(
+                label="Prompt",
+                placeholder="Describe the image or edit...",
+                lines=4,
+            )
+            image_negative_prompt_input = gr.Textbox(
+                label="Negative Prompt",
+                placeholder="Optional exclusions...",
+                lines=2,
+            )
+            image_reference_input = gr.File(
+                file_count="multiple",
+                file_types=["image"],
+                label="Reference Images",
+            )
+            with gr.Row():
+                image_reference_mode_input = gr.Dropdown(
+                    choices=[
+                        ("No References", "none"),
+                        ("Use First Uploaded Reference", "first"),
+                        ("Use Specific Uploaded Reference", "specific"),
+                        ("Create Montage From All References", "montage"),
+                        ("Use All References Separately", "all"),
+                    ],
+                    value="none",
+                    label="Reference Handling",
+                )
+                image_reference_index_input = gr.Number(
+                    value=1,
+                    label="Reference Index (1-based)",
+                    precision=0,
+                    visible=False,
+                )
+            gr.Markdown(
+                "Use all references separately only with workflows whose manifest entry declares multiple reference slots. "
+                "For single-reference workflows, montage combines uploads into one guide image."
+            )
+            with gr.Row():
+                image_width_slider = gr.Slider(minimum=256, maximum=2048, step=16, value=1024, label="Width")
+                image_height_slider = gr.Slider(minimum=256, maximum=2048, step=16, value=1024, label="Height")
+            with gr.Row():
+                image_steps_input = gr.Slider(minimum=1, maximum=80, step=1, value=28, label="Steps")
+                image_cfg_input = gr.Slider(minimum=0.0, maximum=15.0, step=0.1, value=3.5, label="CFG")
+            with gr.Row():
+                image_denoise_input = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=1.0, label="Denoise")
+                image_seed_input = gr.Number(value=43, label="Seed", precision=0)
+            image_generate_btn = gr.Button("Generate Image", variant="primary")
+        with gr.Column(scale=1):
+            image_output = gr.Image(label="Generated Image", type="filepath")
+            image_download = gr.File(label="Download Image")
+
+    def update_image_reference_index_visibility(reference_mode):
+        return gr.update(visible=(reference_mode == "specific"))
+
+    image_reference_mode_input.change(
+        fn=update_image_reference_index_visibility,
+        inputs=image_reference_mode_input,
+        outputs=image_reference_index_input,
+    )
+    image_generate = image_generate_btn.click(
+        fn=generate_image,
+        inputs=[
+            image_backend_selector,
+            image_prompt_input,
+            image_negative_prompt_input,
+            image_reference_input,
+            image_reference_mode_input,
+            image_reference_index_input,
+            image_width_slider,
+            image_height_slider,
+            image_steps_input,
+            image_cfg_input,
+            image_denoise_input,
+            image_seed_input,
+        ],
+        outputs=image_output,
+    )
+    image_generate.then(lambda image_path: image_path, inputs=image_output, outputs=image_download)
+
+
+if __name__ == "__main__":
+    app = FastAPI()
+    gr.mount_gradio_app(app, image_demo, path="/image-generation", allowed_paths=[OUTPUT_PATH])
+    gr.mount_gradio_app(app, demo, path="/", allowed_paths=[OUTPUT_PATH])
+    uvicorn.run(app, host="0.0.0.0", port=GRADIO_PORT)
