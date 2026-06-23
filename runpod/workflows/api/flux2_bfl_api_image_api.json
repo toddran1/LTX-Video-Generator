@@ -1,0 +1,28 @@
+{
+  "10": {
+    "inputs": {
+      "prompt": "A clean product photo of a black ceramic coffee mug on a walnut desk, soft studio light",
+      "model": "Flux.2 [pro]",
+      "model.width": 1024,
+      "model.height": 1024,
+      "seed": 43
+    },
+    "class_type": "Flux2ImageNode",
+    "_meta": {
+      "title": "Flux.2 Image"
+    }
+  },
+  "20": {
+    "inputs": {
+      "filename_prefix": "image_generation/flux2_bfl_api",
+      "images": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}

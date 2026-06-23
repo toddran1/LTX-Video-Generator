@@ -219,6 +219,24 @@ http://127.0.0.1:7860/image-generation
 
 It uses image-generation backends from `runpod/model_manifest.json`. The initial backend entry is for a FLUX.2 Klein ComfyUI workflow and expects an exported API workflow at `runpod/workflows/api/flux2_klein_image_api.json` or `/workspace/workflows/flux2_klein_image_api.json`. Configure the manifest's node patches after exporting the exact workflow you want to run. True separate multi-reference input requires a workflow with multiple image-conditioning slots; otherwise use the page's montage reference mode.
 
+The image workspace also includes:
+
+- `SDXL Turbo Image Test`: local smoke-test workflow for verifying ComfyUI queueing and image output.
+- `FLUX.2 BFL API Multi-Reference`: ComfyUI `Flux2ImageNode` workflow with up to 8 reference-image slots. This requires Comfy Org/BFL API credentials in ComfyUI.
+
+For the local FLUX.2 Klein + ponpoke text encoder path, accept the gated Hugging Face terms in your browser first, then run:
+
+```bash
+HF_TOKEN=hf_xxx bash runpod/setup_flux2_klein_image.sh
+```
+
+Required gated pages:
+
+```text
+https://huggingface.co/black-forest-labs/FLUX.2-klein-9B
+https://huggingface.co/ponpoke/flux2-klein-9b-uncensored-text-encoder
+```
+
 If your pod template exposes HTTP port `7860`, open that endpoint in Runpod. Otherwise, create an SSH tunnel from your Mac:
 
 ```bash

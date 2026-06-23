@@ -44,6 +44,14 @@
             ]
         },
         {
+            "id": "flux2_bfl_api_image",
+            "label": "FLUX.2 BFL API image backend",
+            "required": false,
+            "estimated_gb": 0,
+            "paths": [],
+            "notes": "Uses ComfyUI's Flux2ImageNode partner/API node. Requires Comfy Org/BFL API credentials in the ComfyUI runtime, but does not require local FLUX.2 model weights."
+        },
+        {
             "id": "v2v_initial_backend",
             "label": "RuneXX LTX 2.3 ReTake video-to-video backend",
             "required": false,
@@ -159,6 +167,101 @@
                     "node": "9",
                     "input": "filename_prefix",
                     "value": "image_generation/sdxl_turbo"
+                }
+            ]
+        },
+        {
+            "id": "flux2_bfl_api_image_generation",
+            "label": "FLUX.2 BFL API Multi-Reference",
+            "type": "image_generation",
+            "enabled": true,
+            "model_set": "flux2_bfl_api_image",
+            "workflow": {
+                "repo_path": "runpod/workflows/api/flux2_bfl_api_image_api.json",
+                "path": "/workspace/workflows/flux2_bfl_api_image_api.json",
+                "url": "",
+                "source_repo_path": "",
+                "ui_source_path": "",
+                "ui_source_url": ""
+            },
+            "reference_images": {
+                "mode": "load_image_nodes",
+                "slots": [
+                    {
+                        "node": "10",
+                        "input": "model.images.image_1"
+                    },
+                    {
+                        "node": "10",
+                        "input": "model.images.image_2"
+                    },
+                    {
+                        "node": "10",
+                        "input": "model.images.image_3"
+                    },
+                    {
+                        "node": "10",
+                        "input": "model.images.image_4"
+                    },
+                    {
+                        "node": "10",
+                        "input": "model.images.image_5"
+                    },
+                    {
+                        "node": "10",
+                        "input": "model.images.image_6"
+                    },
+                    {
+                        "node": "10",
+                        "input": "model.images.image_7"
+                    },
+                    {
+                        "node": "10",
+                        "input": "model.images.image_8"
+                    }
+                ],
+                "notes": "ComfyUI's Flux2ImageNode advertises up to 8 reference images. This backend requires Comfy Org/BFL API credentials at runtime."
+            },
+            "patches": {
+                "prompt": [
+                    {
+                        "node": "10",
+                        "input": "prompt"
+                    }
+                ],
+                "negative_prompt": [],
+                "width": [
+                    {
+                        "node": "10",
+                        "input": "model.width"
+                    }
+                ],
+                "height": [
+                    {
+                        "node": "10",
+                        "input": "model.height"
+                    }
+                ],
+                "steps": [],
+                "cfg": [],
+                "denoise": [],
+                "seed": [
+                    {
+                        "node": "10",
+                        "input": "seed"
+                    }
+                ]
+            },
+            "static_patches": [
+                {
+                    "node": "10",
+                    "input": "model",
+                    "value": "Flux.2 [pro]"
+                },
+                {
+                    "node": "20",
+                    "input": "filename_prefix",
+                    "value": "image_generation/flux2_bfl_api"
                 }
             ]
         },
