@@ -31,8 +31,13 @@
             "label": "FLUX.2 Klein image generation/editing stack",
             "required": false,
             "estimated_gb": 25,
-            "paths": [],
-            "notes": "Register exact model paths after choosing the exported ComfyUI FLUX.2 Klein workflow. The ponpoke text encoder can be used by patching the workflow's text encoder loader to that model filename."
+            "paths": [
+                "/workspace/ComfyUI/models/diffusion_models/flux-2-klein-9b.safetensors",
+                "/workspace/ComfyUI/models/clip/flux2-klein-9b-uncensored-q4_k_m.gguf",
+                "/workspace/ComfyUI/models/vae/flux2-vae.safetensors",
+                "/workspace/ComfyUI/custom_nodes/ComfyUI-GGUF"
+            ],
+            "notes": "Local FLUX.2 Klein text-to-image stack using ComfyUI-GGUF for the ponpoke text encoder. The local graph is text-to-image; use the BFL API backend for true multi-reference image editing."
         },
         {
             "id": "sdxl_turbo_image_test",
@@ -280,21 +285,85 @@
                 "ui_source_url": ""
             },
             "reference_images": {
-                "mode": "load_image_nodes",
+                "mode": "disabled",
                 "slots": [],
-                "notes": "Use load_image_nodes with one slot per true image-conditioning input when the selected FLUX.2 workflow supports multiple references. If the workflow only has one reference input, use single_load_image or single_load_image_input and the app's montage reference mode."
+                "notes": "The local FLUX.2 Klein graph is text-to-image. True multi-reference editing is exposed by the Flux.2 BFL API backend; montage/specific reference UI remains available for compatible future local workflows."
             },
             "patches": {
-                "prompt": [],
+                "prompt": [
+                    {
+                        "node": "3",
+                        "input": "text"
+                    }
+                ],
                 "negative_prompt": [],
-                "width": [],
-                "height": [],
-                "steps": [],
-                "cfg": [],
+                "width": [
+                    {
+                        "node": "7",
+                        "input": "width"
+                    },
+                    {
+                        "node": "9",
+                        "input": "width"
+                    }
+                ],
+                "height": [
+                    {
+                        "node": "7",
+                        "input": "height"
+                    },
+                    {
+                        "node": "9",
+                        "input": "height"
+                    }
+                ],
+                "steps": [
+                    {
+                        "node": "7",
+                        "input": "steps"
+                    }
+                ],
+                "cfg": [
+                    {
+                        "node": "4",
+                        "input": "guidance"
+                    }
+                ],
                 "denoise": [],
-                "seed": []
+                "seed": [
+                    {
+                        "node": "6",
+                        "input": "noise_seed"
+                    }
+                ]
             },
-            "static_patches": []
+            "static_patches": [
+                {
+                    "node": "1",
+                    "input": "unet_name",
+                    "value": "flux-2-klein-9b.safetensors"
+                },
+                {
+                    "node": "2",
+                    "input": "clip_name",
+                    "value": "flux2-klein-9b-uncensored-q4_k_m.gguf"
+                },
+                {
+                    "node": "2",
+                    "input": "type",
+                    "value": "flux2"
+                },
+                {
+                    "node": "11",
+                    "input": "vae_name",
+                    "value": "flux2-vae.safetensors"
+                },
+                {
+                    "node": "13",
+                    "input": "filename_prefix",
+                    "value": "image_generation/flux2_klein"
+                }
+            ]
         },
         {
             "id": "wan21_vace_depth_restyle",
