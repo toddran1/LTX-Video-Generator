@@ -40,6 +40,18 @@
             "notes": "Local FLUX.2 Klein text-to-image stack using ComfyUI-GGUF for the ponpoke text encoder. The local graph is text-to-image; use the BFL API backend for true multi-reference image editing."
         },
         {
+            "id": "qwen_image_edit_face_blend",
+            "label": "Qwen Image Edit multi-reference face blend stack",
+            "required": false,
+            "estimated_gb": 35,
+            "paths": [
+                "/workspace/ComfyUI/models/diffusion_models/qwen_image_edit_2511_bf16.safetensors",
+                "/workspace/ComfyUI/models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+                "/workspace/ComfyUI/models/vae/qwen_image_vae.safetensors"
+            ],
+            "notes": "Local multi-reference image editing stack for blending traits from up to three face references into one photorealistic portrait on the A100."
+        },
+        {
             "id": "sdxl_turbo_image_test",
             "label": "SDXL Turbo image smoke-test stack",
             "required": false,
@@ -188,6 +200,9 @@
                 "source_repo_path": "",
                 "ui_source_path": "",
                 "ui_source_url": ""
+            },
+            "auth": {
+                "comfy_org_api_key_env": "COMFY_API_KEY"
             },
             "reference_images": {
                 "mode": "load_image_nodes",
@@ -362,6 +377,133 @@
                     "node": "13",
                     "input": "filename_prefix",
                     "value": "image_generation/flux2_klein"
+                }
+            ]
+        },
+        {
+            "id": "qwen_image_edit_face_blend_generation",
+            "label": "Qwen Image Edit Multi-Reference Face Blend",
+            "type": "image_generation",
+            "enabled": true,
+            "model_set": "qwen_image_edit_face_blend",
+            "workflow": {
+                "repo_path": "runpod/workflows/api/qwen_image_edit_face_blend_api.json",
+                "path": "/workspace/workflows/qwen_image_edit_face_blend_api.json",
+                "url": "",
+                "source_repo_path": "",
+                "ui_source_path": "/workspace/ComfyUI/blueprints/Image Edit (Qwen 2511).json",
+                "ui_source_url": ""
+            },
+            "reference_images": {
+                "mode": "load_image_nodes",
+                "min_images": 1,
+                "slots": [
+                    {
+                        "node": "15",
+                        "input": "image"
+                    },
+                    {
+                        "patches": [
+                            {
+                                "node": "6",
+                                "input": "image2"
+                            },
+                            {
+                                "node": "7",
+                                "input": "image2"
+                            }
+                        ]
+                    },
+                    {
+                        "patches": [
+                            {
+                                "node": "6",
+                                "input": "image3"
+                            },
+                            {
+                                "node": "7",
+                                "input": "image3"
+                            }
+                        ]
+                    }
+                ],
+                "notes": "Local Qwen image-edit workflow with three separate image-conditioning slots. The first image establishes the base structure, and images two and three contribute additional facial traits."
+            },
+            "patches": {
+                "prompt": [
+                    {
+                        "node": "6",
+                        "input": "prompt"
+                    }
+                ],
+                "negative_prompt": [
+                    {
+                        "node": "7",
+                        "input": "prompt"
+                    }
+                ],
+                "width": [
+                    {
+                        "node": "13",
+                        "input": "width"
+                    }
+                ],
+                "height": [
+                    {
+                        "node": "13",
+                        "input": "height"
+                    }
+                ],
+                "steps": [
+                    {
+                        "node": "11",
+                        "input": "steps"
+                    }
+                ],
+                "cfg": [
+                    {
+                        "node": "11",
+                        "input": "cfg"
+                    }
+                ],
+                "denoise": [
+                    {
+                        "node": "11",
+                        "input": "denoise"
+                    }
+                ],
+                "seed": [
+                    {
+                        "node": "11",
+                        "input": "seed"
+                    }
+                ]
+            },
+            "static_patches": [
+                {
+                    "node": "1",
+                    "input": "clip_name",
+                    "value": "qwen_2.5_vl_7b_fp8_scaled.safetensors"
+                },
+                {
+                    "node": "1",
+                    "input": "type",
+                    "value": "qwen_image"
+                },
+                {
+                    "node": "2",
+                    "input": "vae_name",
+                    "value": "qwen_image_vae.safetensors"
+                },
+                {
+                    "node": "3",
+                    "input": "unet_name",
+                    "value": "qwen_image_edit_2511_bf16.safetensors"
+                },
+                {
+                    "node": "14",
+                    "input": "filename_prefix",
+                    "value": "image_generation/qwen_face_blend"
                 }
             ]
         },

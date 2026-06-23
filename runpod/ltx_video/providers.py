@@ -155,6 +155,14 @@ class ComfyVideoToVideoProvider:
         for patch in patches:
             self._apply_patch(workflow, patch, value)
 
+    def _apply_slot_patch(self, workflow, slot, value):
+        patches = slot.get("patches") if isinstance(slot, dict) else None
+        if patches:
+            for patch in patches:
+                self._apply_patch(workflow, patch, value)
+            return
+        self._apply_patch(workflow, slot, value)
+
     def _replace_node_references(self, workflow, source_node_id, replacement):
         for node in workflow.values():
             inputs = node.get("inputs", {})
@@ -477,6 +485,30 @@ class ComfyImageProvider:
                 return source
         return self._resolve_path(workflow.get("repo_path") or workflow.get("path") or workflow.get("url"))
 
+    def _extra_data(self):
+        auth = self.config.get("auth", {})
+        extra_data = {}
+
+        api_key_env = auth.get("comfy_org_api_key_env")
+        if api_key_env:
+            api_key = os.environ.get(api_key_env)
+            if not api_key:
+                raise gr.Error(
+                    f"{self.label} requires `{api_key_env}` to be set for Comfy Org API access."
+                )
+            extra_data["api_key_comfy_org"] = api_key
+
+        auth_token_env = auth.get("comfy_org_auth_token_env")
+        if auth_token_env:
+            auth_token = os.environ.get(auth_token_env)
+            if not auth_token:
+                raise gr.Error(
+                    f"{self.label} requires `{auth_token_env}` to be set for Comfy Org auth."
+                )
+            extra_data["auth_token_comfy_org"] = auth_token
+
+        return extra_data or None
+
     def _copy_to_input(self, path, prefix, extension=None):
         extension = extension or os.path.splitext(path)[1].lower()
         filename = f"{prefix}_{int(time.time() * 1000)}{extension}"
@@ -495,6 +527,14 @@ class ComfyImageProvider:
         patches = self.config.get("patches", {}).get(group_name, [])
         for patch in patches:
             self._apply_patch(workflow, patch, value)
+
+    def _apply_slot_patch(self, workflow, slot, value):
+        patches = slot.get("patches") if isinstance(slot, dict) else None
+        if patches:
+            for patch in patches:
+                self._apply_patch(workflow, patch, value)
+            return
+        self._apply_patch(workflow, slot, value)
 
     def _next_node_id(self, workflow):
         numeric_ids = [int(node_id) for node_id in workflow.keys() if str(node_id).isdigit()]
@@ -537,10 +577,18 @@ class ComfyImageProvider:
         return [reference_files[0]]
 
     def _apply_reference_images(self, workflow, reference_names, reference_mode):
+        reference_config = self.config.get("reference_images", {})
+        min_reference_images = int(reference_config.get("min_images", 0) or 0)
+        if min_reference_images and len(reference_names) < min_reference_images:
+            if min_reference_images == 1:
+                raise gr.Error(f"{self.label} requires at least one reference image.")
+            raise gr.Error(
+                f"{self.label} requires at least {min_reference_images} reference images."
+            )
+
         if not reference_names:
             return
 
-        reference_config = self.config.get("reference_images", {})
         mode = reference_config.get("mode", "single_load_image")
 
         if reference_mode == "all" and mode not in {"load_image_nodes", "load_image_inputs"}:
@@ -588,7 +636,7 @@ class ComfyImageProvider:
             else:
                 loader_node_id = self._insert_load_image(workflow, image_name)
                 value = [loader_node_id, 0]
-            self._apply_patch(workflow, slot, value)
+            self._apply_slot_patch(workflow, slot, value)
 
     def generate(
         self,
@@ -672,11 +720,17 @@ class ComfyImageProvider:
         progress(0.2, desc="Queuing image generation...")
         started_at = time.time()
         log_offset = self.comfy.log_offset()
-        prompt_id = self.comfy.queue_prompt(workflow)["prompt_id"]
+        prompt_id = self.comfy.queue_prompt(
+            workflow,
+            extra_data=self._extra_data(),
+        )["prompt_id"]
         self.comfy.wait_for_prompt(prompt_id, progress, log_offset=log_offset)
 
         image = self.comfy.latest_image(since=started_at)
         if image is None:
+            prompt_error = self.comfy.prompt_error(prompt_id)
+            if prompt_error:
+                raise gr.Error(f"{self.label} failed: {prompt_error}")
             raise gr.Error("ComfyUI finished but no image output was found.")
 
         progress(1.0, desc="Done")

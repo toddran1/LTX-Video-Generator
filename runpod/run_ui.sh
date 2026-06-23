@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VENV_PATH="${VENV_PATH:-/opt/venvs/ltx23}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-if [ ! -f "${VENV_PATH}/bin/activate" ]; then
-  echo "Virtualenv not found at ${VENV_PATH}. Run runpod/setup_ltx23.sh first." >&2
+if [ -n "${VENV_PATH:-}" ]; then
+  selected_venv="${VENV_PATH}"
+elif [ -f "/opt/venvs/imagegen/bin/activate" ]; then
+  selected_venv="/opt/venvs/imagegen"
+else
+  selected_venv="/opt/venvs/ltx23"
+fi
+
+if [ ! -f "${selected_venv}/bin/activate" ]; then
+  echo "Virtualenv not found at ${selected_venv}. Run runpod/setup_ltx23.sh first." >&2
   exit 1
 fi
 
 # shellcheck source=/dev/null
-source "${VENV_PATH}/bin/activate"
+source "${selected_venv}/bin/activate"
 python "${PROJECT_DIR}/runpod/app.py"

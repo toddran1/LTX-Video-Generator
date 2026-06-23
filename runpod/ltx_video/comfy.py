@@ -56,8 +56,11 @@ class ComfyClient:
         if not self.is_running():
             self.boot()
 
-    def queue_prompt(self, workflow):
-        data = json.dumps({"prompt": workflow}).encode("utf-8")
+    def queue_prompt(self, workflow, extra_data=None):
+        payload = {"prompt": workflow}
+        if extra_data:
+            payload["extra_data"] = extra_data
+        data = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(f"http://127.0.0.1:{self.port}/prompt", data=data)
         try:
             with urllib.request.urlopen(request) as response:
@@ -102,6 +105,26 @@ class ComfyClient:
     def queue_state(self):
         with urllib.request.urlopen(f"http://127.0.0.1:{self.port}/queue") as response:
             return json.loads(response.read())
+
+    def prompt_history(self, prompt_id):
+        with urllib.request.urlopen(f"http://127.0.0.1:{self.port}/history/{prompt_id}") as response:
+            history = json.loads(response.read())
+        return history.get(str(prompt_id), {})
+
+    def prompt_error(self, prompt_id):
+        record = self.prompt_history(prompt_id)
+        status = record.get("status", {})
+        for message in status.get("messages", []):
+            if not message or message[0] != "execution_error":
+                continue
+            details = message[1] if len(message) > 1 and isinstance(message[1], dict) else {}
+            exception = (details.get("exception_message") or "").strip()
+            node_type = details.get("node_type")
+            if exception and node_type:
+                return f"{node_type}: {exception}"
+            if exception:
+                return exception
+        return None
 
     def interrupt(self):
         request = urllib.request.Request(

@@ -105,6 +105,18 @@ Install the experimental Wan 2.1 VACE video editing backend:
 bash runpod/setup_wan21_vace_v2v.sh
 ```
 
+Install the local image generation stack:
+
+```bash
+bash runpod/setup_image_generation.sh
+```
+
+That script:
+
+- syncs the API workflow JSON files into `/workspace/workflows`
+- installs the local Qwen multi-reference face-blend stack
+- optionally installs local FLUX.2 Klein when `INSTALL_FLUX2_KLEIN=1` and `HF_TOKEN` is set
+
 Check storage estimates and missing files:
 
 ```bash
@@ -224,6 +236,23 @@ The image workspace also includes:
 - `SDXL Turbo Image Test`: local smoke-test workflow for verifying ComfyUI queueing and image output.
 - `FLUX.2 BFL API Multi-Reference`: ComfyUI `Flux2ImageNode` workflow with up to 8 reference-image slots. This requires Comfy Org/BFL API credentials in ComfyUI.
 - `FLUX.2 Klein Image Generation`: local text-to-image workflow using `flux-2-klein-9b.safetensors`, `flux2-klein-9b-uncensored-q4_k_m.gguf`, and `flux2-vae.safetensors`.
+- `Qwen Image Edit Multi-Reference Face Blend`: local image-edit workflow using up to 3 separate face references to synthesize one new photorealistic face.
+
+The image UI now returns a real downloadable file alongside the preview, so after each generation you can save the result directly from the `Download Image` control.
+
+For the local Qwen face-blend path, run:
+
+```bash
+bash runpod/setup_qwen_face_blend_image.sh
+```
+
+This script downloads:
+
+- `qwen_image_edit_2511_bf16.safetensors`
+- `qwen_2.5_vl_7b_fp8_scaled.safetensors`
+- `qwen_image_vae.safetensors`
+
+By default it stores the large source files under `/root/comfy-models` and symlinks them into `/workspace/ComfyUI/models`. That avoids common `/workspace` quota issues on Runpod while keeping ComfyUI's model discovery path unchanged.
 
 For the local FLUX.2 Klein + ponpoke text encoder path, accept the gated Hugging Face terms in your browser first, then run:
 

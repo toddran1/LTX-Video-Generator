@@ -31,6 +31,7 @@ Setup on the pod:
 ```bash
 cd /workspace/modal-notebook
 MODEL_ROOT=/workspace/ComfyUI/models bash runpod/setup_ltx23.sh
+MODEL_ROOT=/workspace/ComfyUI/models bash runpod/setup_image_generation.sh
 MODEL_ROOT=/workspace/ComfyUI/models bash runpod/setup_wan21_fun_control_v2v.sh
 nohup bash runpod/run_ui.sh > runpod/ui.log 2>&1 &
 echo $! > runpod/ui.pid
@@ -41,6 +42,13 @@ If the pod has a small `/workspace` quota, use memory-backed model storage for t
 ```bash
 MODEL_ROOT=/dev/shm/ltx23-models bash runpod/setup_ltx23.sh
 ```
+
+The image flow now includes:
+
+- `Qwen Image Edit Multi-Reference Face Blend`: local multi-reference face synthesis/editing
+- `FLUX.2 Klein Image Generation`: local FLUX.2 text-to-image
+
+The image page returns both an in-app preview and a downloadable file for saving the generated image locally.
 
 ## Useful Commands
 

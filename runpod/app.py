@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from pathlib import Path
 
 import gradio as gr
 import uvicorn
@@ -22,6 +23,27 @@ from ltx_video.runtime_state import (
     update_job,
 )
 
+
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+
+
+def load_project_env():
+    env_path = PROJECT_DIR / ".env"
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'").strip('"')
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+load_project_env()
 
 COMFY_PATH = os.environ.get("COMFY_PATH", "/workspace/ComfyUI")
 OUTPUT_PATH = os.path.join(COMFY_PATH, "output")
@@ -46,6 +68,29 @@ image_provider_by_label = {
     backend.get("label", backend["id"]): ComfyImageProvider(comfy, backend)
     for backend in image_backends
 }
+
+
+FACE_BLEND_CASE = "Blend Multiple Faces"
+CUSTOM_CASE = "Custom"
+FACE_BLEND_BACKEND_LABEL = "Qwen Image Edit Multi-Reference Face Blend"
+FACE_BLEND_PROMPT = (
+    "Create a new adult face that blends visible traits from all uploaded reference faces into one "
+    "coherent identity. Preserve a natural mix of facial structure, eye shape, nose bridge, lips, cheekbones, "
+    "skin texture, and hairline cues from the references without copying any one face exactly. "
+    "Output a highly detailed photorealistic studio portrait, centered head-and-shoulders framing, "
+    "85mm lens look, soft directional beauty lighting, realistic pores, natural skin variation, "
+    "sharp focus on the eyes, clean background, ultra high detail."
+)
+FACE_BLEND_NEGATIVE_PROMPT = (
+    "blurry, soft focus, low detail, low resolution, cartoon, illustration, painting, 3d render, cgi, "
+    "deformed face, asymmetrical eyes, extra eyes, extra nose, extra mouth, duplicated features, "
+    "bad teeth, waxy skin, plastic skin, overprocessed skin, heavy makeup, harsh shadows, cropped head"
+)
+FACE_BLEND_NOTES = (
+    "Upload multiple face references, then use `Use All References Separately`. "
+    "This routes to the local multi-reference Qwen image-edit backend so the model can draw traits from each "
+    "uploaded face while generating one new photorealistic portrait on the A100."
+)
 
 
 def _format_timestamp(timestamp):
@@ -195,7 +240,7 @@ def generate_image(
         raise gr.Error("No enabled image-generation backend is configured.")
 
     provider = image_provider_by_label[backend_label]
-    return provider.generate(
+    image_path = provider.generate(
         prompt=prompt,
         negative_prompt=negative_prompt,
         reference_files=reference_files,
@@ -208,6 +253,41 @@ def generate_image(
         denoise=denoise,
         seed=seed,
         progress=progress,
+    )
+    return image_path, gr.update(value=image_path, visible=True)
+
+
+def apply_image_case(case_name):
+    if case_name == FACE_BLEND_CASE:
+        backend_value = FACE_BLEND_BACKEND_LABEL
+        if backend_value not in image_provider_by_label and image_provider_by_label:
+            backend_value = list(image_provider_by_label.keys())[0]
+        return (
+            gr.update(value=backend_value),
+            gr.update(value=FACE_BLEND_PROMPT),
+            gr.update(value=FACE_BLEND_NEGATIVE_PROMPT),
+            gr.update(value="all"),
+            gr.update(value=1, visible=False),
+            gr.update(value=1024),
+            gr.update(value=1280),
+            gr.update(value=28),
+            gr.update(value=3.5),
+            gr.update(value=1.0),
+            FACE_BLEND_NOTES,
+        )
+
+    return (
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        "Use a preset to load a task-specific backend and prompt scaffold, or stay on `Custom` to control everything manually.",
     )
 
 
@@ -639,6 +719,11 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as image_demo:
     with gr.Row():
         with gr.Column(scale=1):
             image_backend_choices = list(image_provider_by_label.keys())
+            image_case_selector = gr.Dropdown(
+                choices=[CUSTOM_CASE, FACE_BLEND_CASE],
+                value=CUSTOM_CASE,
+                label="Generation Case",
+            )
             image_backend_selector = gr.Dropdown(
                 choices=image_backend_choices,
                 value=image_backend_choices[0] if image_backend_choices else None,
@@ -681,6 +766,9 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as image_demo:
                 "Use all references separately only with workflows whose manifest entry declares multiple reference slots. "
                 "For single-reference workflows, montage combines uploads into one guide image."
             )
+            image_case_notes = gr.Markdown(
+                "Use a preset to load a task-specific backend and prompt scaffold, or stay on `Custom` to control everything manually."
+            )
             with gr.Row():
                 image_width_slider = gr.Slider(minimum=256, maximum=2048, step=16, value=1024, label="Width")
                 image_height_slider = gr.Slider(minimum=256, maximum=2048, step=16, value=1024, label="Height")
@@ -693,7 +781,7 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as image_demo:
             image_generate_btn = gr.Button("Generate Image", variant="primary")
         with gr.Column(scale=1):
             image_output = gr.Image(label="Generated Image", type="filepath")
-            image_download = gr.File(label="Download Image")
+            image_download = gr.DownloadButton("Download Image", visible=False)
 
     def update_image_reference_index_visibility(reference_mode):
         return gr.update(visible=(reference_mode == "specific"))
@@ -702,6 +790,23 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as image_demo:
         fn=update_image_reference_index_visibility,
         inputs=image_reference_mode_input,
         outputs=image_reference_index_input,
+    )
+    image_case_selector.change(
+        fn=apply_image_case,
+        inputs=image_case_selector,
+        outputs=[
+            image_backend_selector,
+            image_prompt_input,
+            image_negative_prompt_input,
+            image_reference_mode_input,
+            image_reference_index_input,
+            image_width_slider,
+            image_height_slider,
+            image_steps_input,
+            image_cfg_input,
+            image_denoise_input,
+            image_case_notes,
+        ],
     )
     image_generate = image_generate_btn.click(
         fn=generate_image,
@@ -719,9 +824,8 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as image_demo:
             image_denoise_input,
             image_seed_input,
         ],
-        outputs=image_output,
+        outputs=[image_output, image_download],
     )
-    image_generate.then(lambda image_path: image_path, inputs=image_output, outputs=image_download)
 
 
 if __name__ == "__main__":

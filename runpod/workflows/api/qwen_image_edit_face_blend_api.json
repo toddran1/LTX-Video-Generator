@@ -1,0 +1,229 @@
+{
+  "1": {
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load Qwen Image Text Encoder"
+    }
+  },
+  "2": {
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load Qwen Image VAE"
+    }
+  },
+  "3": {
+    "inputs": {
+      "unet_name": "qwen_image_edit_2511_bf16.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Qwen Image Edit UNet"
+    }
+  },
+  "4": {
+    "inputs": {
+      "model": [
+        "3",
+        0
+      ],
+      "shift": 3.1
+    },
+    "class_type": "ModelSamplingAuraFlow",
+    "_meta": {
+      "title": "AuraFlow Sampling"
+    }
+  },
+  "5": {
+    "inputs": {
+      "model": [
+        "4",
+        0
+      ],
+      "strength": 1.0
+    },
+    "class_type": "CFGNorm",
+    "_meta": {
+      "title": "Normalize CFG"
+    }
+  },
+  "6": {
+    "inputs": {
+      "clip": [
+        "1",
+        0
+      ],
+      "prompt": "Create a new adult face that blends visible traits from all uploaded reference faces into one coherent identity.",
+      "vae": [
+        "2",
+        0
+      ],
+      "image1": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "_meta": {
+      "title": "Positive Face Blend Conditioning"
+    }
+  },
+  "7": {
+    "inputs": {
+      "clip": [
+        "1",
+        0
+      ],
+      "prompt": "",
+      "vae": [
+        "2",
+        0
+      ],
+      "image1": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "_meta": {
+      "title": "Negative Face Blend Conditioning"
+    }
+  },
+  "8": {
+    "inputs": {
+      "conditioning": [
+        "6",
+        0
+      ],
+      "reference_latents_method": "index_timestep_zero"
+    },
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "_meta": {
+      "title": "Positive Reference Method"
+    }
+  },
+  "9": {
+    "inputs": {
+      "conditioning": [
+        "7",
+        0
+      ],
+      "reference_latents_method": "index_timestep_zero"
+    },
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "_meta": {
+      "title": "Negative Reference Method"
+    }
+  },
+  "10": {
+    "inputs": {
+      "pixels": [
+        "15",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "Encode First Reference"
+    }
+  },
+  "11": {
+    "inputs": {
+      "model": [
+        "5",
+        0
+      ],
+      "seed": 43,
+      "steps": 40,
+      "cfg": 4.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "positive": [
+        "8",
+        0
+      ],
+      "negative": [
+        "9",
+        0
+      ],
+      "latent_image": [
+        "10",
+        0
+      ],
+      "denoise": 1.0
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Sample Qwen Edit"
+    }
+  },
+  "12": {
+    "inputs": {
+      "samples": [
+        "11",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode Image"
+    }
+  },
+  "13": {
+    "inputs": {
+      "image": [
+        "12",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "width": 1024,
+      "height": 1280,
+      "crop": "center"
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "Resize Output"
+    }
+  },
+  "14": {
+    "inputs": {
+      "images": [
+        "13",
+        0
+      ],
+      "filename_prefix": "image_generation/qwen_face_blend"
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "15": {
+    "inputs": {
+      "image": [
+        "1000",
+        0
+      ]
+    },
+    "class_type": "FluxKontextImageScale",
+    "_meta": {
+      "title": "Scale First Reference"
+    }
+  }
+}
