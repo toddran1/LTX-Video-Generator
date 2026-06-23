@@ -41,7 +41,7 @@
         },
         {
             "id": "qwen_image_edit_face_blend",
-            "label": "Qwen Image Edit multi-reference face blend stack",
+            "label": "Qwen Image Edit multi-reference stack",
             "required": false,
             "estimated_gb": 35,
             "paths": [
@@ -49,7 +49,7 @@
                 "/workspace/ComfyUI/models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
                 "/workspace/ComfyUI/models/vae/qwen_image_vae.safetensors"
             ],
-            "notes": "Local multi-reference image editing stack for blending traits from up to three face references into one photorealistic portrait on the A100."
+            "notes": "Local multi-reference image editing stack for combining traits from up to three reference images into one coherent result on the A100."
         },
         {
             "id": "sdxl_turbo_image_test",
@@ -382,7 +382,7 @@
         },
         {
             "id": "qwen_image_edit_face_blend_generation",
-            "label": "Qwen Image Edit Multi-Reference Face Blend",
+            "label": "Qwen Image Edit Multi-Reference",
             "type": "image_generation",
             "enabled": true,
             "model_set": "qwen_image_edit_face_blend",
@@ -427,7 +427,7 @@
                         ]
                     }
                 ],
-                "notes": "Local Qwen image-edit workflow with three separate image-conditioning slots. The first image establishes the base structure, and images two and three contribute additional facial traits."
+                "notes": "Local Qwen image-edit workflow with three separate image-conditioning slots. The first image establishes the base structure, and images two and three contribute additional visual traits."
             },
             "patches": {
                 "prompt": [

@@ -236,7 +236,7 @@ The image workspace also includes:
 - `SDXL Turbo Image Test`: local smoke-test workflow for verifying ComfyUI queueing and image output.
 - `FLUX.2 BFL API Multi-Reference`: ComfyUI `Flux2ImageNode` workflow with up to 8 reference-image slots. This requires Comfy Org/BFL API credentials in ComfyUI.
 - `FLUX.2 Klein Image Generation`: local text-to-image workflow using `flux-2-klein-9b.safetensors`, `flux2-klein-9b-uncensored-q4_k_m.gguf`, and `flux2-vae.safetensors`.
-- `Qwen Image Edit Multi-Reference Face Blend`: local image-edit workflow using up to 3 separate face references to synthesize one new photorealistic face.
+- `Qwen Image Edit Multi-Reference`: local image-edit workflow using up to 3 separate references to synthesize one integrated result.
 
 The image UI now returns a real downloadable file alongside the preview, so after each generation you can save the result directly from the `Download Image` control.
 

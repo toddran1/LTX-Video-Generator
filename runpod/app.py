@@ -71,25 +71,42 @@ image_provider_by_label = {
 
 
 FACE_BLEND_CASE = "Blend Multiple Faces"
+MULTI_REFERENCE_CASE = "Multi-Reference"
 CUSTOM_CASE = "Custom"
-FACE_BLEND_BACKEND_LABEL = "Qwen Image Edit Multi-Reference Face Blend"
+FACE_BLEND_BACKEND_LABEL = "Qwen Image Edit Multi-Reference"
 FACE_BLEND_PROMPT = (
-    "Create a new adult face that blends visible traits from all uploaded reference faces into one "
-    "coherent identity. Preserve a natural mix of facial structure, eye shape, nose bridge, lips, cheekbones, "
-    "skin texture, and hairline cues from the references without copying any one face exactly. "
-    "Output a highly detailed photorealistic studio portrait, centered head-and-shoulders framing, "
-    "85mm lens look, soft directional beauty lighting, realistic pores, natural skin variation, "
-    "sharp focus on the eyes, clean background, ultra high detail."
+    "Create a new adult face that blends visible traits from all uploaded reference faces into one coherent identity. "
+    "Preserve a natural mix of facial structure, eye shape, nose bridge, lips, cheekbones, skin texture, and hairline "
+    "cues from the references without copying any one face exactly. Output a highly detailed photorealistic studio "
+    "portrait, centered head-and-shoulders framing, 85mm lens look, soft directional beauty lighting, realistic pores, "
+    "natural skin variation, sharp focus on the eyes, clean background, ultra high detail."
 )
 FACE_BLEND_NEGATIVE_PROMPT = (
-    "blurry, soft focus, low detail, low resolution, cartoon, illustration, painting, 3d render, cgi, "
-    "deformed face, asymmetrical eyes, extra eyes, extra nose, extra mouth, duplicated features, "
-    "bad teeth, waxy skin, plastic skin, overprocessed skin, heavy makeup, harsh shadows, cropped head"
+    "blurry, soft focus, low detail, low resolution, cartoon, illustration, painting, 3d render, cgi, deformed face, "
+    "asymmetrical eyes, extra eyes, extra nose, extra mouth, duplicated features, bad teeth, waxy skin, plastic skin, "
+    "overprocessed skin, heavy makeup, harsh shadows, cropped head"
 )
 FACE_BLEND_NOTES = (
     "Upload multiple face references, then use `Use All References Separately`. "
-    "This routes to the local multi-reference Qwen image-edit backend so the model can draw traits from each "
-    "uploaded face while generating one new photorealistic portrait on the A100."
+    "This routes to the local multi-reference Qwen image-edit backend so the model can draw traits from each uploaded "
+    "face while generating one new photorealistic portrait on the A100."
+)
+MULTI_REFERENCE_BACKEND_LABEL = "Qwen Image Edit Multi-Reference"
+MULTI_REFERENCE_PROMPT = (
+    "Create one coherent, high-detail image that draws useful traits, materials, colors, structure, and styling cues "
+    "from all uploaded reference images without copying any single reference exactly. Preserve the strongest relevant "
+    "visual signals from each reference while producing a polished final composition with realistic detail, clean "
+    "lighting, sharp focus, and a natural integrated result."
+)
+MULTI_REFERENCE_NEGATIVE_PROMPT = (
+    "blurry, soft focus, low detail, low resolution, noisy, smeared textures, duplicated elements, "
+    "distorted proportions, warped structure, bad anatomy, extra limbs, extra fingers, extra objects, "
+    "artifacting, oversaturated, flat lighting, harsh compression, cluttered composition"
+)
+MULTI_REFERENCE_NOTES = (
+    "Upload multiple references, then use `Use All References Separately`. "
+    "This routes to the local multi-reference Qwen image-edit backend so the model can pull different cues from each "
+    "uploaded image while generating one integrated result on the A100."
 )
 
 
@@ -274,6 +291,24 @@ def apply_image_case(case_name):
             gr.update(value=3.5),
             gr.update(value=1.0),
             FACE_BLEND_NOTES,
+        )
+
+    if case_name == MULTI_REFERENCE_CASE:
+        backend_value = MULTI_REFERENCE_BACKEND_LABEL
+        if backend_value not in image_provider_by_label and image_provider_by_label:
+            backend_value = list(image_provider_by_label.keys())[0]
+        return (
+            gr.update(value=backend_value),
+            gr.update(value=MULTI_REFERENCE_PROMPT),
+            gr.update(value=MULTI_REFERENCE_NEGATIVE_PROMPT),
+            gr.update(value="all"),
+            gr.update(value=1, visible=False),
+            gr.update(value=1024),
+            gr.update(value=1280),
+            gr.update(value=28),
+            gr.update(value=3.5),
+            gr.update(value=1.0),
+            MULTI_REFERENCE_NOTES,
         )
 
     return (
@@ -720,7 +755,7 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as image_demo:
         with gr.Column(scale=1):
             image_backend_choices = list(image_provider_by_label.keys())
             image_case_selector = gr.Dropdown(
-                choices=[CUSTOM_CASE, FACE_BLEND_CASE],
+                choices=[CUSTOM_CASE, MULTI_REFERENCE_CASE, FACE_BLEND_CASE],
                 value=CUSTOM_CASE,
                 label="Generation Case",
             )

@@ -45,7 +45,7 @@ MODEL_ROOT=/dev/shm/ltx23-models bash runpod/setup_ltx23.sh
 
 The image flow now includes:
 
-- `Qwen Image Edit Multi-Reference Face Blend`: local multi-reference face synthesis/editing
+- `Qwen Image Edit Multi-Reference`: local multi-reference image synthesis/editing
 - `FLUX.2 Klein Image Generation`: local FLUX.2 text-to-image
 
 The image page returns both an in-app preview and a downloadable file for saving the generated image locally.
