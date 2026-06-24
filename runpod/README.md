@@ -87,6 +87,25 @@ export TMPDIR=/workspace/tmp
 bash runpod/setup_ltx23.sh
 ```
 
+For a new pod or migrated pod, use this order:
+
+```bash
+cd /workspace/modal-notebook
+NETWORK_ROOT=/workspace bash runpod/bootstrap_storage.sh
+export NETWORK_ROOT=/workspace
+export MODEL_ROOT=/workspace/ComfyUI/models
+export HF_HOME=/workspace/hf-cache
+export HUGGINGFACE_HUB_CACHE=/workspace/hf-cache/hub
+export TRANSFORMERS_CACHE=/workspace/hf-cache/transformers
+export TMPDIR=/workspace/tmp
+bash runpod/setup_ltx23.sh
+bash runpod/setup_image_generation.sh
+bash runpod/setup_wan21_fun_control_v2v.sh
+bash runpod/setup_v2v_ltx23.sh
+nohup bash runpod/run_ui.sh > runpod/ui.log 2>&1 &
+echo $! > runpod/ui.pid
+```
+
 Install the initial LTX 2.3 video-to-video backend:
 
 ```bash
@@ -114,9 +133,11 @@ bash runpod/setup_image_generation.sh
 That script:
 
 - syncs the API workflow JSON files into `/workspace/workflows`
+- installs the local InsightFace face-swap stack
 - installs the local Qwen multi-reference face-blend stack
 - installs the experimental local Krea 2 multi-reference stack
 - optionally installs local FLUX.2 Klein when `INSTALL_FLUX2_KLEIN=1` and `HF_TOKEN` is set
+- leaves the video-side compatibility packages in the image venv so the same pod can run the image and video routes without extra manual pip installs
 
 Check storage estimates and missing files:
 
@@ -129,7 +150,7 @@ python runpod/storage_report.py --model-root "${MODEL_ROOT:-/workspace/ComfyUI/m
 Use the private key that matches the public key you added to Runpod. If you added the key created for this project, use:
 
 ```bash
-ssh xh1vb7ucieubve-64412072@ssh.runpod.io -i ~/.ssh/runpod_ltx_video
+ssh <pod-id>@ssh.runpod.io -i ~/.ssh/runpod_ltx_video
 ```
 
 The command Runpod showed uses `~/.ssh/id_ed25519`. That only works if the matching public key for `id_ed25519` was added to the pod.
@@ -141,7 +162,7 @@ If your Runpod pod exposes a standard SSH service, upload from your Mac:
 ```bash
 rsync -av --exclude .git -e "ssh -i ~/.ssh/runpod_ltx_video" \
   /Users/reginaldrandolph/Documents/LTX-Video-Generator/modal-notebook/ \
-  xh1vb7ucieubve-64412072@ssh.runpod.io:/workspace/modal-notebook/
+  <pod-id>@ssh.runpod.io:/workspace/modal-notebook/
 ```
 
 Some Runpod proxy SSH sessions are interactive-only and block `rsync`/`scp`. If that happens, push this repo to a GitHub fork or use Runpod's file upload/terminal workflow, then put the project at:
@@ -153,7 +174,7 @@ Some Runpod proxy SSH sessions are interactive-only and block `rsync`/`scp`. If 
 Then SSH in:
 
 ```bash
-ssh xh1vb7ucieubve-64412072@ssh.runpod.io -i ~/.ssh/runpod_ltx_video
+ssh <pod-id>@ssh.runpod.io -i ~/.ssh/runpod_ltx_video
 cd /workspace/modal-notebook
 ```
 
@@ -239,8 +260,11 @@ The image workspace also includes:
 - `FLUX.2 Klein Image Generation`: local text-to-image workflow using `flux-2-klein-9b.safetensors`, `flux2-klein-9b-uncensored-q4_k_m.gguf`, and `flux2-vae.safetensors`.
 - `Krea 2 Local Multi-Reference`: experimental local Krea 2 workflow using ordered multimodal reference images through a custom ComfyUI node.
 - `Qwen Image Edit Multi-Reference`: local image-edit workflow using up to 3 separate references to synthesize one integrated result.
+- `InsightFace Face Swap`: local source-face to target-body/composition swap backend that uses two reference images and writes a downloadable PNG result.
 
 The image UI now returns a real downloadable file alongside the preview, so after each generation you can save the result directly from the `Download Image` control.
+
+`bash runpod/setup_image_generation.sh` installs `InsightFace Face Swap` by default. If you want to skip it on a lighter pod setup, run `INSTALL_INSIGHTFACE_SWAP=0 bash runpod/setup_image_generation.sh`.
 
 For the local Krea 2 multi-reference path, run:
 
@@ -286,7 +310,7 @@ https://huggingface.co/ponpoke/flux2-klein-9b-uncensored-text-encoder
 If your pod template exposes HTTP port `7860`, open that endpoint in Runpod. Otherwise, create an SSH tunnel from your Mac:
 
 ```bash
-ssh -L 7860:127.0.0.1:7860 xh1vb7ucieubve-64412072@ssh.runpod.io -i ~/.ssh/runpod_ltx_video
+ssh -L 7860:127.0.0.1:7860 <pod-id>@ssh.runpod.io -i ~/.ssh/runpod_ltx_video
 ```
 
 Runpod's proxied `ssh.runpod.io` connection may reject port forwarding with `unsupported channel type`. If that happens, use the **SSH over exposed TCP** host and port from the Runpod Connect panel:
@@ -393,6 +417,29 @@ If the log says `Prompt executed` and then raises `gradio.exceptions.InvalidPath
 cd /workspace/modal-notebook
 git pull
 kill $(cat runpod/ui.pid) 2>/dev/null || true
+nohup bash runpod/run_ui.sh > runpod/ui.log 2>&1 &
+echo $! > runpod/ui.pid
+```
+
+### LTX Image-To-Video Fails With `GGUF magic invalid`
+
+One of the GGUF model files on disk is corrupt, usually from an interrupted download or a quota issue. The current `runpod/setup_ltx23.sh` and `runpod/setup_v2v_ltx23.sh` scripts now detect invalid GGUF headers and quarantine those files before re-downloading them. Re-run the relevant setup script:
+
+```bash
+bash runpod/setup_ltx23.sh
+```
+
+If you are also using the LTX ReTake video-to-video backend, then run:
+
+```bash
+bash runpod/setup_v2v_ltx23.sh
+```
+
+Then restart the UI:
+
+```bash
+kill $(cat runpod/ui.pid) 2>/dev/null || true
+pkill -f '/workspace/modal-notebook/runpod/app.py' 2>/dev/null || true
 nohup bash runpod/run_ui.sh > runpod/ui.log 2>&1 &
 echo $! > runpod/ui.pid
 ```

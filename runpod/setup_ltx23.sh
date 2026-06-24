@@ -33,12 +33,19 @@ python -m pip install \
   av \
   diffusers \
   einops \
+  ftfy \
   gradio \
+  huggingface_hub \
+  imageio-ffmpeg \
+  "kornia<0.8.0" \
   onnx \
   onnxruntime-gpu \
   opencv-python-headless \
+  peft \
   Pillow \
+  pyloudnorm \
   requests \
+  rotary_embedding_torch \
   spandrel \
   torchsde \
   tqdm
@@ -72,6 +79,13 @@ install_node "https://github.com/city96/ComfyUI-GGUF"
 install_node "https://github.com/Lightricks/ComfyUI-LTXVideo"
 install_node "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
 install_node "https://github.com/kijai/ComfyUI-MelBandRoFormer"
+python -m pip install \
+  ftfy \
+  imageio-ffmpeg \
+  "kornia<0.8.0" \
+  peft \
+  pyloudnorm \
+  rotary_embedding_torch
 
 echo "[5/5] Downloading LTX 2.3 weights"
 model_dirs=(
@@ -102,17 +116,82 @@ download_model() {
   local filename="$3"
 
   mkdir -p "${dest}"
-  if [ ! -f "${dest}/${filename}" ] || [ -f "${dest}/${filename}.aria2" ]; then
-    aria2c \
-      --console-log-level=error \
-      -c \
-      -x 16 \
-      -s 16 \
-      -k 1M \
-      -d "${dest}" \
-      -o "${filename}" \
-      "${url}"
+  if [ -f "${dest}/${filename}" ] && [ ! -f "${dest}/${filename}.aria2" ]; then
+    if [[ "${filename}" == *.gguf ]]; then
+      if ! DEST="${dest}" FILENAME="${filename}" python - <<'PY'
+import os
+from pathlib import Path
+
+path = Path(os.environ["DEST"]) / os.environ["FILENAME"]
+with path.open("rb") as handle:
+    raise SystemExit(0 if handle.read(4) == b"GGUF" else 1)
+PY
+      then
+        mv "${dest}/${filename}" "${dest}/${filename}.corrupt.$(date +%s)"
+      else
+        return 0
+      fi
+    else
+      return 0
+    fi
   fi
+
+  if [[ "${url}" == https://huggingface.co/*/resolve/* ]]; then
+    URL="${url}" DEST="${dest}" FILENAME="${filename}" python - <<'PY'
+import os
+from pathlib import Path
+from urllib.parse import urlparse
+
+from huggingface_hub import hf_hub_download
+
+url = os.environ["URL"]
+dest = Path(os.environ["DEST"])
+filename = os.environ["FILENAME"]
+
+path = urlparse(url).path.strip("/").split("/")
+if len(path) < 5 or path[2] != "resolve":
+    raise SystemExit(f"Unsupported Hugging Face URL: {url}")
+
+repo_id = "/".join(path[:2])
+relative_path = "/".join(path[4:])
+subfolder, _, repo_filename = relative_path.rpartition("/")
+if filename != repo_filename:
+    raise SystemExit(
+        f"Filename mismatch for {url}: expected {repo_filename}, got {filename}"
+    )
+
+downloaded = hf_hub_download(
+    repo_id=repo_id,
+    filename=repo_filename,
+    subfolder=subfolder or None,
+    local_dir=str(dest),
+    local_dir_use_symlinks=False,
+    resume_download=True,
+    token=os.environ.get("HF_TOKEN"),
+)
+canonical = dest / filename
+if Path(downloaded) != canonical and not canonical.exists():
+    try:
+        canonical.symlink_to(Path(downloaded).relative_to(dest))
+    except OSError:
+        import shutil
+
+        shutil.copy2(downloaded, canonical)
+print(f"Downloaded {downloaded}")
+PY
+    rm -f "${dest}/${filename}.aria2"
+    return 0
+  fi
+
+  aria2c \
+    --console-log-level=error \
+    -c \
+    -x 16 \
+    -s 16 \
+    -k 1M \
+    -d "${dest}" \
+    -o "${filename}" \
+    "${url}"
 }
 
 models_dir="${COMFY_PATH}/models"

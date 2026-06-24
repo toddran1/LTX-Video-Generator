@@ -60,6 +60,11 @@ class LtxTextImageProvider:
         workflow["359"]["inputs"]["sigmas"] = "0.85, 0.7250, 0.4219, 0.0"
         workflow["103"]["inputs"]["cfg"] = 1.0
         workflow["114"]["inputs"]["noise_seed"] = int(seed) + 1
+        workflow["184"]["inputs"]["vae_name"] = "vae/ltx-2.3-22b-dev_video_vae.safetensors"
+        workflow["196"]["inputs"]["vae_name"] = "vae/ltx-2.3-22b-dev_audio_vae.safetensors"
+        workflow["346"]["inputs"]["clip_name1"] = "gemma-3-12b-it-q4_0_s.gguf"
+        workflow["346"]["inputs"]["clip_name2"] = "text_encoders/ltx-2.3-22b-dev_embeddings_connectors.safetensors"
+        workflow["345"]["inputs"]["unet_name"] = "ltx-2.3-22b-dev-Q4_K_M.gguf"
 
         progress(0.1, desc="Preparing inputs...")
         if mode == "Text-to-Video":
@@ -735,3 +740,206 @@ class ComfyImageProvider:
 
         progress(1.0, desc="Done")
         return image
+
+
+class InsightFaceSwapProvider:
+    def __init__(self, output_path, model_root=None, swapper_path=None):
+        self.output_path = output_path
+        self.model_root = model_root or os.environ.get(
+            "INSIGHTFACE_MODEL_ROOT",
+            "/workspace/ComfyUI/models/insightface",
+        )
+        self.swapper_path = swapper_path or os.environ.get("INSWAPPER_MODEL_PATH")
+        self._face_analyzer = None
+        self._swapper = None
+
+    @property
+    def label(self):
+        return "InsightFace Face Swap"
+
+    def _providers(self):
+        return ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+    def _load_models(self):
+        if self._face_analyzer is not None and self._swapper is not None:
+            return self._face_analyzer, self._swapper
+
+        swapper_path = self.swapper_path
+        if not swapper_path:
+            candidates = [
+                os.path.join(self.model_root, "inswapper_128.onnx"),
+                os.path.join(self.model_root, "models", "inswapper_128.onnx"),
+            ]
+            swapper_path = next((path for path in candidates if os.path.exists(path)), candidates[0])
+
+        if not os.path.exists(swapper_path):
+            raise gr.Error(
+                f"Missing face swap model at {swapper_path}. "
+                "Run `bash runpod/setup_insightface_swap.sh` on the pod."
+            )
+
+        try:
+            from insightface.app import FaceAnalysis
+            from insightface.model_zoo import get_model
+        except ImportError as error:
+            raise gr.Error(
+                "InsightFace face swap dependencies are not installed. "
+                "Run `bash runpod/setup_insightface_swap.sh` on the pod."
+            ) from error
+
+        providers = self._providers()
+        try:
+            face_analyzer = FaceAnalysis(name="buffalo_l", root=self.model_root, providers=providers)
+            face_analyzer.prepare(ctx_id=0, det_size=(640, 640))
+            swapper = get_model(swapper_path, providers=providers)
+        except Exception:
+            providers = ["CPUExecutionProvider"]
+            face_analyzer = FaceAnalysis(name="buffalo_l", root=self.model_root, providers=providers)
+            face_analyzer.prepare(ctx_id=-1, det_size=(640, 640))
+            swapper = get_model(swapper_path, providers=providers)
+
+        self._face_analyzer = face_analyzer
+        self._swapper = swapper
+        return self._face_analyzer, self._swapper
+
+    def _resolve_reference_files(self, reference_files, reference_mode, reference_index):
+        reference_files = [uploaded_path(path) for path in (reference_files or [])]
+        reference_files = [path for path in reference_files if path]
+        if not reference_files or reference_mode == "none":
+            return []
+
+        if reference_mode == "specific":
+            selected_index = max(1, int(reference_index or 1)) - 1
+            selected_index = min(selected_index, len(reference_files) - 1)
+            return [reference_files[selected_index]]
+
+        if reference_mode == "all":
+            return reference_files
+
+        return [reference_files[0]]
+
+    def _largest_face(self, faces):
+        def area(face):
+            x1, y1, x2, y2 = face.bbox
+            return max(0, x2 - x1) * max(0, y2 - y1)
+
+        return max(faces, key=area)
+
+    def _expanded_bbox(self, bbox, image_shape, scale):
+        x1, y1, x2, y2 = [float(value) for value in bbox]
+        width = x2 - x1
+        height = y2 - y1
+        center_x = x1 + width / 2
+        center_y = y1 + height / 2
+        side = max(width, height) * scale
+        half = side / 2
+        image_height, image_width = image_shape[:2]
+        left = max(0, int(round(center_x - half)))
+        top = max(0, int(round(center_y - half)))
+        right = min(image_width, int(round(center_x + half)))
+        bottom = min(image_height, int(round(center_y + half)))
+        return left, top, right, bottom
+
+    def _reinforce_source_face(self, result, source_image, source_face, target_face, alpha):
+        if alpha <= 0:
+            return result
+
+        import cv2
+        import numpy as np
+
+        source_box = self._expanded_bbox(source_face.bbox, source_image.shape, 1.15)
+        target_box = self._expanded_bbox(target_face.bbox, result.shape, 1.35)
+        sx1, sy1, sx2, sy2 = source_box
+        tx1, ty1, tx2, ty2 = target_box
+        target_width = tx2 - tx1
+        target_height = ty2 - ty1
+        if target_width <= 0 or target_height <= 0 or sx2 <= sx1 or sy2 <= sy1:
+            return result
+
+        source_crop = source_image[sy1:sy2, sx1:sx2]
+        if source_crop.size == 0:
+            return result
+
+        source_crop = cv2.resize(source_crop, (target_width, target_height), interpolation=cv2.INTER_LANCZOS4)
+        target_region = result[ty1:ty2, tx1:tx2]
+
+        mask = np.zeros((target_height, target_width), dtype=np.float32)
+        center = (target_width // 2, target_height // 2)
+        axes = (max(1, int(target_width * 0.38)), max(1, int(target_height * 0.46)))
+        cv2.ellipse(mask, center, axes, 0, 0, 360, 1.0, -1)
+        feather = max(9, (min(target_width, target_height) // 10) | 1)
+        mask = cv2.GaussianBlur(mask, (feather, feather), 0)
+        mask = mask[..., None] * float(alpha)
+
+        blended = source_crop.astype(np.float32) * mask + target_region.astype(np.float32) * (1.0 - mask)
+        result = result.copy()
+        result[ty1:ty2, tx1:tx2] = np.clip(blended, 0, 255).astype(np.uint8)
+        return result
+
+    def generate(
+        self,
+        prompt,
+        negative_prompt,
+        reference_files,
+        reference_mode,
+        reference_index,
+        width,
+        height,
+        steps,
+        cfg,
+        denoise,
+        seed,
+        progress,
+    ):
+        progress(0, desc="Loading face swap models...")
+        resolved_references = self._resolve_reference_files(reference_files, reference_mode, reference_index)
+        if len(resolved_references) < 2:
+            raise gr.Error(
+                "InsightFace Face Swap needs two references: source face first, target body/composition second."
+            )
+
+        source_path = resolved_references[0]
+        target_path = resolved_references[1]
+
+        try:
+            import cv2
+        except ImportError as error:
+            raise gr.Error(
+                "OpenCV is not installed for the face swap backend. "
+                "Run `bash runpod/setup_insightface_swap.sh` on the pod."
+            ) from error
+
+        analyzer, swapper = self._load_models()
+        target_image = cv2.imread(target_path)
+        source_image = cv2.imread(source_path)
+        if target_image is None:
+            raise gr.Error("Could not read the target body/composition image.")
+        if source_image is None:
+            raise gr.Error("Could not read the source face image.")
+
+        progress(0.25, desc="Detecting faces...")
+        target_faces = analyzer.get(target_image)
+        source_faces = analyzer.get(source_image)
+        if not target_faces:
+            raise gr.Error("No face was detected in the target body/composition image.")
+        if not source_faces:
+            raise gr.Error("No face was detected in the source identity image.")
+
+        progress(0.55, desc="Swapping source face onto target...")
+        target_face = self._largest_face(target_faces)
+        source_face = self._largest_face(source_faces)
+        result = swapper.get(target_image, target_face, source_face, paste_back=True)
+        reinforce_alpha = float(cfg) if cfg is not None else float(os.environ.get("FACE_SWAP_REINFORCE_ALPHA", "0.18"))
+        if reinforce_alpha <= 0:
+            reinforce_alpha = 0.0
+        reinforce_alpha = min(reinforce_alpha, 0.5)
+        result = self._reinforce_source_face(result, source_image, source_face, target_face, reinforce_alpha)
+
+        progress(0.85, desc="Saving image...")
+        output_dir = os.path.join(self.output_path, "image_generation")
+        os.makedirs(output_dir, exist_ok=True)
+        output_file = os.path.join(output_dir, f"insightface_swap_{int(time.time() * 1000)}.png")
+        cv2.imwrite(output_file, result)
+
+        progress(1.0, desc="Done")
+        return output_file

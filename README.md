@@ -1,8 +1,8 @@
 # LTX 2.3 Video Generator
 
-This fork packages the original Modal notebook workflow into a Runpod-ready LTX 2.3 video generator.
+This fork packages the original Modal notebook workflow into a Runpod-ready image and video generation workspace.
 
-The current target runtime is a Runpod A100 pod running ComfyUI, the LTX 2.3 custom nodes, and a Gradio UI for text-to-video, image-to-video, and configurable video-to-video workflows.
+The current target runtime is a Runpod A100 pod running ComfyUI, the LTX 2.3 and Wan custom nodes, and a Gradio UI for text-to-video, image-to-video, video-to-video, and `/image-generation` workflows.
 
 ## Runpod Quick Start
 
@@ -26,13 +26,16 @@ Recommended pod:
 
 Do not use a 10 GB network volume for this project. The current LTX model files alone are about 35 GB, the LTX ReTake v2v backend adds roughly 25 GB more, and the Wan Fun Control v2v backend adds roughly 16 GB more. Use at least 100 GB for short testing and 150 GB or more for normal development with generated outputs.
 
-Setup on the pod:
+Setup on a new pod:
 
 ```bash
 cd /workspace/modal-notebook
+NETWORK_ROOT=/workspace bash runpod/bootstrap_storage.sh
+export NETWORK_ROOT=/workspace
 MODEL_ROOT=/workspace/ComfyUI/models bash runpod/setup_ltx23.sh
 MODEL_ROOT=/workspace/ComfyUI/models bash runpod/setup_image_generation.sh
 MODEL_ROOT=/workspace/ComfyUI/models bash runpod/setup_wan21_fun_control_v2v.sh
+MODEL_ROOT=/workspace/ComfyUI/models bash runpod/setup_v2v_ltx23.sh
 nohup bash runpod/run_ui.sh > runpod/ui.log 2>&1 &
 echo $! > runpod/ui.pid
 ```
@@ -45,9 +48,10 @@ MODEL_ROOT=/dev/shm/ltx23-models bash runpod/setup_ltx23.sh
 
 The image flow now includes:
 
-- `Krea 2 Local Multi-Reference`: experimental local Krea 2 photoreal multi-reference workflow
-- `Qwen Image Edit Multi-Reference`: local multi-reference image synthesis/editing
-- `FLUX.2 Klein Image Generation`: local FLUX.2 text-to-image
+- `Krea 2 Local Multi-Reference`: experimental local multi-reference synthesis/editing
+- `Qwen Image Edit Multi-Reference`: local multi-reference synthesis/editing
+- `InsightFace Face Swap`: source-face to target-body/composition swap path
+- `FLUX.2 Klein Image Generation`: optional local FLUX.2 text-to-image
 
 The image page returns both an in-app preview and a downloadable file for saving the generated image locally.
 
@@ -75,6 +79,14 @@ kill $(cat runpod/ui.pid) 2>/dev/null || true
 nohup bash runpod/run_ui.sh > runpod/ui.log 2>&1 &
 echo $! > runpod/ui.pid
 ```
+
+If `7860` is not exposed as an HTTP service, tunnel it over direct TCP SSH:
+
+```bash
+ssh -N -L 7860:127.0.0.1:7860 root@<direct-tcp-host> -p <direct-tcp-port> -i ~/.ssh/runpod_ltx_video
+```
+
+Then open `http://127.0.0.1:7860`. The image workspace is at `http://127.0.0.1:7860/image-generation`.
 
 ## Original Notebooks
 

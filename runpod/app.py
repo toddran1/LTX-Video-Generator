@@ -11,6 +11,7 @@ from ltx_video.manifest import enabled_image_backends, enabled_v2v_backends, loa
 from ltx_video.providers import (
     ComfyImageProvider,
     ComfyVideoToVideoProvider,
+    InsightFaceSwapProvider,
     LtxTextImageProvider,
     uploaded_path,
 )
@@ -68,14 +69,17 @@ image_provider_by_label = {
     backend.get("label", backend["id"]): ComfyImageProvider(comfy, backend)
     for backend in image_backends
 }
+insightface_swap_provider = InsightFaceSwapProvider(OUTPUT_PATH)
+image_provider_by_label[insightface_swap_provider.label] = insightface_swap_provider
 
 
 FACE_BLEND_CASE = "Blend Multiple Faces"
 MULTI_REFERENCE_CASE = "Multi-Reference"
 KREA_MULTI_REFERENCE_CASE = "Krea 2 Multi-Reference"
 KREA_FACE_BLEND_CASE = "Krea 2 Blend Multiple Faces"
-KREA_IDENTITY_SWAP_CASE = "Krea 2 Face On Body"
+KREA_IDENTITY_SWAP_CASE = "Face On Body"
 CUSTOM_CASE = "Custom"
+INSIGHTFACE_SWAP_BACKEND_LABEL = "InsightFace Face Swap"
 FACE_BLEND_BACKEND_LABEL = "Qwen Image Edit Multi-Reference"
 FACE_BLEND_PROMPT = (
     "Create a new adult face that blends visible traits from all uploaded reference faces into one coherent identity. "
@@ -124,14 +128,14 @@ KREA_FACE_BLEND_PROMPT = (
     "skin, realistic pores, sharp eyes, soft flattering light, and premium DSLR realism."
 )
 KREA_IDENTITY_SWAP_PROMPT = (
-    "Use reference 1 as the source face identity and reference 2 as the target body, pose, framing, clothing, and scene. "
-    "Generate one seamless photorealistic image where the person from reference 1 naturally appears in the body and "
-    "composition of reference 2. Preserve realistic anatomy, skin texture, lighting consistency, facial detail, and "
-    "camera realism. If more references are provided, use them as supporting detail cues only."
+    "Swap the face from reference 1 onto the person in reference 2. Keep reference 2 as the target body, pose, outfit, "
+    "camera angle, background, and final composition."
 )
 KREA_NEGATIVE_PROMPT = (
     "blurry, low detail, low resolution, waxy skin, plastic skin, distorted face, duplicated features, extra limbs, "
-    "extra fingers, warped anatomy, collage, obvious composite, mismatched lighting, heavy artifacts, cartoon, painting, cgi"
+    "extra fingers, warped anatomy, collage, split screen, side-by-side, contact sheet, before and after, reference board, "
+    "multiple panels, duplicate person, extra portrait, obvious composite, mismatched lighting, heavy artifacts, cartoon, "
+    "painting, cgi"
 )
 KREA_MULTI_REFERENCE_NOTES = (
     "Experimental local Krea 2 path. Upload multiple references and use `Use All References Separately`. "
@@ -143,9 +147,10 @@ KREA_FACE_BLEND_NOTES = (
     "first. Krea 2 is stronger at high-end photorealism than precise identity locking, so expect some drift."
 )
 KREA_IDENTITY_SWAP_NOTES = (
-    "Experimental local Krea 2 face-on-body path. Upload the identity face first and the target body/composition second, "
-    "then use `Use All References Separately`. This is not a dedicated swap model, so composition and realism should improve "
-    "but exact identity transfer can still drift."
+    "Dedicated face-on-body swap path. Upload the source identity face first and the target body/composition second, "
+    "then use `Use All References Separately`. This backend keeps the second image as the canvas and swaps the largest "
+    "detected face from the first image onto the largest detected face in the second image. For this case, the CFG slider "
+    "controls extra source-face reinforcement; 0.15 to 0.25 is usually enough."
 )
 
 
@@ -351,7 +356,7 @@ def apply_image_case(case_name):
         )
 
     if case_name == KREA_IDENTITY_SWAP_CASE:
-        backend_value = KREA_BACKEND_LABEL
+        backend_value = INSIGHTFACE_SWAP_BACKEND_LABEL
         if backend_value not in image_provider_by_label and image_provider_by_label:
             backend_value = list(image_provider_by_label.keys())[0]
         return (
@@ -361,9 +366,9 @@ def apply_image_case(case_name):
             gr.update(value="all"),
             gr.update(value=1, visible=False),
             gr.update(value=1024),
-            gr.update(value=1280),
-            gr.update(value=8),
-            gr.update(value=0.0),
+            gr.update(value=1024),
+            gr.update(value=1),
+            gr.update(value=0.18),
             gr.update(value=1.0),
             KREA_IDENTITY_SWAP_NOTES,
         )

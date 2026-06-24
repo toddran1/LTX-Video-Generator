@@ -1025,19 +1025,6 @@
       "title": "Bypass when disabled"
     }
   },
-  "599:486": {
-    "inputs": {
-      "text": "The Joker stares directly into the camera, his face smeared with white and red makeup, a sinister grin stretching across his lips. He speaks in a low, unsettling voice, \"OH i take a little LTX break right now.\" A chilling, maniacal laugh erupts from him, echoing with a disturbing intensity.",
-      "anything": [
-        "599:485",
-        0
-      ]
-    },
-    "class_type": "easy showAnything",
-    "_meta": {
-      "title": "Enhanced Prompt"
-    }
-  },
   "599:485": {
     "inputs": {
       "prompt": [
