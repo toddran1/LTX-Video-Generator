@@ -52,6 +52,19 @@
             "notes": "Local multi-reference image editing stack for combining traits from up to three reference images into one coherent result on the A100."
         },
         {
+            "id": "krea2_multi_reference",
+            "label": "Krea 2 local multi-reference stack",
+            "required": false,
+            "estimated_gb": 32,
+            "paths": [
+                "/workspace/ComfyUI/models/diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+                "/workspace/ComfyUI/models/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+                "/workspace/ComfyUI/models/vae/qwen_image_vae.safetensors",
+                "/workspace/ComfyUI/custom_nodes/ComfyUI-LTXImageNodes/__init__.py"
+            ],
+            "notes": "Experimental local Krea 2 backend using a custom ComfyUI node that feeds ordered reference images through Krea 2's Qwen3-VL conditioning path. Best suited to photoreal multi-reference synthesis; identity transfer can still drift."
+        },
+        {
             "id": "sdxl_turbo_image_test",
             "label": "SDXL Turbo image smoke-test stack",
             "required": false,
@@ -504,6 +517,119 @@
                     "node": "14",
                     "input": "filename_prefix",
                     "value": "image_generation/qwen_face_blend"
+                }
+            ]
+        },
+        {
+            "id": "krea2_multi_reference_generation",
+            "label": "Krea 2 Local Multi-Reference",
+            "type": "image_generation",
+            "enabled": true,
+            "model_set": "krea2_multi_reference",
+            "workflow": {
+                "repo_path": "runpod/workflows/api/krea2_multi_reference_api.json",
+                "path": "/workspace/workflows/krea2_multi_reference_api.json",
+                "url": "",
+                "source_repo_path": "",
+                "ui_source_path": "",
+                "ui_source_url": ""
+            },
+            "reference_images": {
+                "mode": "load_image_nodes",
+                "min_images": 1,
+                "slots": [
+                    {
+                        "node": "2",
+                        "input": "image1"
+                    },
+                    {
+                        "node": "2",
+                        "input": "image2"
+                    },
+                    {
+                        "node": "2",
+                        "input": "image3"
+                    },
+                    {
+                        "node": "2",
+                        "input": "image4"
+                    }
+                ],
+                "notes": "Experimental local Krea 2 multimodal conditioning path with four ordered reference-image slots. Upload the most important identity or structure reference first."
+            },
+            "patches": {
+                "prompt": [
+                    {
+                        "node": "2",
+                        "input": "prompt"
+                    }
+                ],
+                "negative_prompt": [],
+                "width": [
+                    {
+                        "node": "7",
+                        "input": "width"
+                    },
+                    {
+                        "node": "9",
+                        "input": "width"
+                    }
+                ],
+                "height": [
+                    {
+                        "node": "7",
+                        "input": "height"
+                    },
+                    {
+                        "node": "9",
+                        "input": "height"
+                    }
+                ],
+                "steps": [
+                    {
+                        "node": "7",
+                        "input": "steps"
+                    }
+                ],
+                "cfg": [
+                    {
+                        "node": "3",
+                        "input": "guidance"
+                    }
+                ],
+                "denoise": [],
+                "seed": [
+                    {
+                        "node": "6",
+                        "input": "noise_seed"
+                    }
+                ]
+            },
+            "static_patches": [
+                {
+                    "node": "1",
+                    "input": "clip_name",
+                    "value": "qwen3vl_4b_fp8_scaled.safetensors"
+                },
+                {
+                    "node": "1",
+                    "input": "type",
+                    "value": "krea2"
+                },
+                {
+                    "node": "4",
+                    "input": "unet_name",
+                    "value": "krea2_turbo_fp8_scaled.safetensors"
+                },
+                {
+                    "node": "11",
+                    "input": "vae_name",
+                    "value": "qwen_image_vae.safetensors"
+                },
+                {
+                    "node": "13",
+                    "input": "filename_prefix",
+                    "value": "image_generation/krea2_multi_reference"
                 }
             ]
         },

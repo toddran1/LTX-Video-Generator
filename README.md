@@ -45,6 +45,7 @@ MODEL_ROOT=/dev/shm/ltx23-models bash runpod/setup_ltx23.sh
 
 The image flow now includes:
 
+- `Krea 2 Local Multi-Reference`: experimental local Krea 2 photoreal multi-reference workflow
 - `Qwen Image Edit Multi-Reference`: local multi-reference image synthesis/editing
 - `FLUX.2 Klein Image Generation`: local FLUX.2 text-to-image
 

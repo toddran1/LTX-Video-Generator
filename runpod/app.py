@@ -72,6 +72,9 @@ image_provider_by_label = {
 
 FACE_BLEND_CASE = "Blend Multiple Faces"
 MULTI_REFERENCE_CASE = "Multi-Reference"
+KREA_MULTI_REFERENCE_CASE = "Krea 2 Multi-Reference"
+KREA_FACE_BLEND_CASE = "Krea 2 Blend Multiple Faces"
+KREA_IDENTITY_SWAP_CASE = "Krea 2 Face On Body"
 CUSTOM_CASE = "Custom"
 FACE_BLEND_BACKEND_LABEL = "Qwen Image Edit Multi-Reference"
 FACE_BLEND_PROMPT = (
@@ -107,6 +110,42 @@ MULTI_REFERENCE_NOTES = (
     "Upload multiple references, then use `Use All References Separately`. "
     "This routes to the local multi-reference Qwen image-edit backend so the model can pull different cues from each "
     "uploaded image while generating one integrated result on the A100."
+)
+KREA_BACKEND_LABEL = "Krea 2 Local Multi-Reference"
+KREA_MULTI_REFERENCE_PROMPT = (
+    "Create one polished, photorealistic image that draws useful structure, materials, styling, lighting, and subject "
+    "cues from all uploaded references. Keep the result coherent and natural, blend the strongest relevant traits from "
+    "each reference, and produce a clean high-detail photographic final image rather than a collage or literal copy."
+)
+KREA_FACE_BLEND_PROMPT = (
+    "Create a brand-new adult face that convincingly blends facial traits from all uploaded face references into one "
+    "coherent photorealistic identity. Preserve a believable mix of face shape, eyes, nose, lips, cheekbones, skin "
+    "texture, hairline, and age cues from across the references. Output a highly detailed studio portrait with natural "
+    "skin, realistic pores, sharp eyes, soft flattering light, and premium DSLR realism."
+)
+KREA_IDENTITY_SWAP_PROMPT = (
+    "Use reference 1 as the source face identity and reference 2 as the target body, pose, framing, clothing, and scene. "
+    "Generate one seamless photorealistic image where the person from reference 1 naturally appears in the body and "
+    "composition of reference 2. Preserve realistic anatomy, skin texture, lighting consistency, facial detail, and "
+    "camera realism. If more references are provided, use them as supporting detail cues only."
+)
+KREA_NEGATIVE_PROMPT = (
+    "blurry, low detail, low resolution, waxy skin, plastic skin, distorted face, duplicated features, extra limbs, "
+    "extra fingers, warped anatomy, collage, obvious composite, mismatched lighting, heavy artifacts, cartoon, painting, cgi"
+)
+KREA_MULTI_REFERENCE_NOTES = (
+    "Experimental local Krea 2 path. Upload multiple references and use `Use All References Separately`. "
+    "This custom workflow feeds ordered reference images into Krea 2's multimodal conditioning path for photoreal "
+    "multi-reference synthesis on the A100."
+)
+KREA_FACE_BLEND_NOTES = (
+    "Experimental local Krea 2 face blend path. Upload only face references and keep the most important identity source "
+    "first. Krea 2 is stronger at high-end photorealism than precise identity locking, so expect some drift."
+)
+KREA_IDENTITY_SWAP_NOTES = (
+    "Experimental local Krea 2 face-on-body path. Upload the identity face first and the target body/composition second, "
+    "then use `Use All References Separately`. This is not a dedicated swap model, so composition and realism should improve "
+    "but exact identity transfer can still drift."
 )
 
 
@@ -275,6 +314,60 @@ def generate_image(
 
 
 def apply_image_case(case_name):
+    if case_name == KREA_MULTI_REFERENCE_CASE:
+        backend_value = KREA_BACKEND_LABEL
+        if backend_value not in image_provider_by_label and image_provider_by_label:
+            backend_value = list(image_provider_by_label.keys())[0]
+        return (
+            gr.update(value=backend_value),
+            gr.update(value=KREA_MULTI_REFERENCE_PROMPT),
+            gr.update(value=KREA_NEGATIVE_PROMPT),
+            gr.update(value="all"),
+            gr.update(value=1, visible=False),
+            gr.update(value=1024),
+            gr.update(value=1280),
+            gr.update(value=8),
+            gr.update(value=0.0),
+            gr.update(value=1.0),
+            KREA_MULTI_REFERENCE_NOTES,
+        )
+
+    if case_name == KREA_FACE_BLEND_CASE:
+        backend_value = KREA_BACKEND_LABEL
+        if backend_value not in image_provider_by_label and image_provider_by_label:
+            backend_value = list(image_provider_by_label.keys())[0]
+        return (
+            gr.update(value=backend_value),
+            gr.update(value=KREA_FACE_BLEND_PROMPT),
+            gr.update(value=KREA_NEGATIVE_PROMPT),
+            gr.update(value="all"),
+            gr.update(value=1, visible=False),
+            gr.update(value=1024),
+            gr.update(value=1280),
+            gr.update(value=8),
+            gr.update(value=0.0),
+            gr.update(value=1.0),
+            KREA_FACE_BLEND_NOTES,
+        )
+
+    if case_name == KREA_IDENTITY_SWAP_CASE:
+        backend_value = KREA_BACKEND_LABEL
+        if backend_value not in image_provider_by_label and image_provider_by_label:
+            backend_value = list(image_provider_by_label.keys())[0]
+        return (
+            gr.update(value=backend_value),
+            gr.update(value=KREA_IDENTITY_SWAP_PROMPT),
+            gr.update(value=KREA_NEGATIVE_PROMPT),
+            gr.update(value="all"),
+            gr.update(value=1, visible=False),
+            gr.update(value=1024),
+            gr.update(value=1280),
+            gr.update(value=8),
+            gr.update(value=0.0),
+            gr.update(value=1.0),
+            KREA_IDENTITY_SWAP_NOTES,
+        )
+
     if case_name == FACE_BLEND_CASE:
         backend_value = FACE_BLEND_BACKEND_LABEL
         if backend_value not in image_provider_by_label and image_provider_by_label:
@@ -755,7 +848,14 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as image_demo:
         with gr.Column(scale=1):
             image_backend_choices = list(image_provider_by_label.keys())
             image_case_selector = gr.Dropdown(
-                choices=[CUSTOM_CASE, MULTI_REFERENCE_CASE, FACE_BLEND_CASE],
+                choices=[
+                    CUSTOM_CASE,
+                    KREA_MULTI_REFERENCE_CASE,
+                    KREA_FACE_BLEND_CASE,
+                    KREA_IDENTITY_SWAP_CASE,
+                    MULTI_REFERENCE_CASE,
+                    FACE_BLEND_CASE,
+                ],
                 value=CUSTOM_CASE,
                 label="Generation Case",
             )

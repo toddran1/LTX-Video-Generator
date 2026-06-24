@@ -115,6 +115,7 @@ That script:
 
 - syncs the API workflow JSON files into `/workspace/workflows`
 - installs the local Qwen multi-reference face-blend stack
+- installs the experimental local Krea 2 multi-reference stack
 - optionally installs local FLUX.2 Klein when `INSTALL_FLUX2_KLEIN=1` and `HF_TOKEN` is set
 
 Check storage estimates and missing files:
@@ -236,9 +237,24 @@ The image workspace also includes:
 - `SDXL Turbo Image Test`: local smoke-test workflow for verifying ComfyUI queueing and image output.
 - `FLUX.2 BFL API Multi-Reference`: ComfyUI `Flux2ImageNode` workflow with up to 8 reference-image slots. This requires Comfy Org/BFL API credentials in ComfyUI.
 - `FLUX.2 Klein Image Generation`: local text-to-image workflow using `flux-2-klein-9b.safetensors`, `flux2-klein-9b-uncensored-q4_k_m.gguf`, and `flux2-vae.safetensors`.
+- `Krea 2 Local Multi-Reference`: experimental local Krea 2 workflow using ordered multimodal reference images through a custom ComfyUI node.
 - `Qwen Image Edit Multi-Reference`: local image-edit workflow using up to 3 separate references to synthesize one integrated result.
 
 The image UI now returns a real downloadable file alongside the preview, so after each generation you can save the result directly from the `Download Image` control.
+
+For the local Krea 2 multi-reference path, run:
+
+```bash
+bash runpod/setup_krea2_image.sh
+```
+
+This script downloads:
+
+- `krea2_turbo_fp8_scaled.safetensors`
+- `qwen3vl_4b_fp8_scaled.safetensors`
+- `qwen_image_vae.safetensors`
+
+It also installs the repo's `ComfyUI-LTXImageNodes` custom node into `ComfyUI/custom_nodes` so the local Krea workflow can accept multiple ordered reference images.
 
 For the local Qwen face-blend path, run:
 
