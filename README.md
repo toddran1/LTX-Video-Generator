@@ -55,6 +55,8 @@ The image flow now includes:
 
 The image page returns both an in-app preview and a downloadable file for saving the generated image locally.
 
+The main video tab also includes a `Start/End Image-to-Video` mode. That mode expects a ComfyUI API workflow with first-frame and last-frame image inputs at `runpod/workflows/api/wan_first_last_frame_to_video_api.json` or `/workspace/workflows/wan_first_last_frame_to_video_api.json`.
+
 ## Useful Commands
 
 Watch logs:

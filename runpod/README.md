@@ -251,6 +251,26 @@ The dedicated image workspace is mounted at:
 http://127.0.0.1:7860/image-generation
 ```
 
+The `LTX Text / Image` tab has three modes:
+
+- `Text-to-Video`: existing text-only LTX 2.3 flow.
+- `Image-to-Video`: existing single starting image LTX 2.3 flow.
+- `Start/End Image-to-Video`: first-frame and last-frame image flow. This requires a ComfyUI API workflow exported to `runpod/workflows/api/wan_first_last_frame_to_video_api.json` in the repo or `/workspace/workflows/wan_first_last_frame_to_video_api.json` on the pod.
+
+For the start/end workflow, use a graph based on Wan first/last-frame nodes such as `WanFirstLastFrameToVideo`, `WanVideoImageToVideoEncode`, or `WanVideoVACEStartToEndFrame`. The app automatically patches two `LoadImage` nodes whose titles or placeholder filenames contain `start`/`first` and `end`/`last`. If your exported workflow uses different names, set these env vars before `bash runpod/run_ui.sh`:
+
+```bash
+export START_END_I2V_WORKFLOW_PATH=/workspace/workflows/wan_first_last_frame_to_video_api.json
+export START_END_I2V_START_IMAGE_NODE=<load-image-node-id>
+export START_END_I2V_END_IMAGE_NODE=<load-image-node-id>
+export START_END_I2V_PROMPT_NODE=<positive-prompt-node-id>
+export START_END_I2V_WIDTH_NODE=<width-node-id>
+export START_END_I2V_HEIGHT_NODE=<height-node-id>
+export START_END_I2V_LENGTH_NODE=<length-or-num-frames-node-id>
+export START_END_I2V_SEED_NODE=<sampler-seed-node-id>
+export START_END_I2V_OUTPUT_NODE=<video-combine-node-id>
+```
+
 It uses image-generation backends from `runpod/model_manifest.json`. The local FLUX.2 Klein backend uses `runpod/workflows/api/flux2_klein_image_api.json`, `ComfyUI-GGUF`, the ponpoke GGUF text encoder, and the Comfy FLUX.2 VAE. It is a text-to-image graph. True separate multi-reference input requires a workflow with image-conditioning slots; the included BFL API backend exposes up to 8 reference-image slots.
 
 The image workspace also includes:
@@ -443,6 +463,23 @@ pkill -f '/workspace/modal-notebook/runpod/app.py' 2>/dev/null || true
 nohup bash runpod/run_ui.sh > runpod/ui.log 2>&1 &
 echo $! > runpod/ui.pid
 ```
+
+### Start/End Image-To-Video Says The Workflow Is Missing
+
+Export a ComfyUI API workflow for a first/last-frame Wan image-to-video graph and place it at:
+
+```text
+/workspace/modal-notebook/runpod/workflows/api/wan_first_last_frame_to_video_api.json
+```
+
+Then sync repo workflows into the pod workflow directory:
+
+```bash
+cd /workspace/modal-notebook
+bash runpod/sync_repo_workflows.sh
+```
+
+The fallback path `/workspace/workflows/wan_first_last_frame_to_video_api.json` also works. Restart the UI after adding the workflow.
 
 ### Local Tunnel Says Address Already In Use
 

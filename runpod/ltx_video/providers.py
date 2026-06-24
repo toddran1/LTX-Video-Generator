@@ -31,17 +31,229 @@ def uploaded_path(value):
 
 
 class LtxTextImageProvider:
-    def __init__(self, comfy, workflow_url):
+    def __init__(self, comfy, workflow_url, start_end_workflow=None):
         self.comfy = comfy
         self.workflow_url = workflow_url
+        self.start_end_workflow = start_end_workflow
 
-    def generate(self, mode, image_filepath, prompt, width, height, duration, seed, progress):
+    def _resolve_path(self, path):
+        if not path:
+            return None
+        if path.startswith("http://") or path.startswith("https://"):
+            return path
+        if os.path.isabs(path):
+            return path
+        return os.path.join(PROJECT_ROOT, path)
+
+    def _start_end_workflow_source(self):
+        candidates = [
+            os.environ.get("START_END_I2V_WORKFLOW_PATH"),
+            self.start_end_workflow,
+            "runpod/workflows/api/wan_first_last_frame_to_video_api.json",
+            "/workspace/workflows/wan_first_last_frame_to_video_api.json",
+        ]
+        for candidate in candidates:
+            source = self._resolve_path(candidate)
+            if not source:
+                continue
+            if source.startswith("http://") or source.startswith("https://") or os.path.exists(source):
+                return source
+        return None
+
+    def _copy_image_to_input(self, image_filepath, prefix):
+        source_path = uploaded_path(image_filepath)
+        if source_path is None:
+            return None
+        extension = os.path.splitext(source_path)[1] or ".png"
+        filename = f"{prefix}_{int(time.time() * 1000)}{extension}"
+        shutil.copy(source_path, os.path.join(self.comfy.input_path, filename))
+        return filename
+
+    def _set_input(self, workflow, node_id, input_name, value):
+        node = workflow.get(str(node_id))
+        if not node:
+            raise gr.Error(f"Start/end image workflow is missing configured node {node_id}.")
+        node.setdefault("inputs", {})[input_name] = value
+        return True
+
+    def _set_input_from_env(self, workflow, env_name, input_name, value):
+        node_id = os.environ.get(env_name)
+        if not node_id:
+            return False
+        return self._set_input(workflow, node_id, input_name, value)
+
+    def _set_first_existing_input_from_env(self, workflow, env_name, input_names, value):
+        node_id = os.environ.get(env_name)
+        if not node_id:
+            return False
+        node = workflow.get(str(node_id))
+        if not node:
+            raise gr.Error(f"Start/end image workflow is missing configured node {node_id}.")
+        inputs = node.setdefault("inputs", {})
+        for input_name in input_names:
+            if input_name in inputs:
+                inputs[input_name] = value
+                return True
+        inputs[input_names[0]] = value
+        return True
+
+    def _node_text(self, node):
+        meta = node.get("_meta", {}) if isinstance(node.get("_meta"), dict) else {}
+        values = [
+            node.get("class_type", ""),
+            meta.get("title", ""),
+            str(node.get("inputs", {}).get("image", "")),
+        ]
+        return " ".join(str(value).lower() for value in values)
+
+    def _patch_load_image_by_hint(self, workflow, filename, hints):
+        hint_terms = tuple(hints)
+        for node in workflow.values():
+            if node.get("class_type") != "LoadImage":
+                continue
+            if any(term in self._node_text(node) for term in hint_terms):
+                node.setdefault("inputs", {})["image"] = filename
+                return True
+        return False
+
+    def _patch_inputs_by_hint(self, workflow, input_name, value, hints):
+        patched = False
+        hint_terms = tuple(hints)
+        for node in workflow.values():
+            inputs = node.get("inputs", {})
+            if input_name not in inputs:
+                continue
+            if any(term in self._node_text(node) for term in hint_terms):
+                inputs[input_name] = value
+                patched = True
+        return patched
+
+    def _patch_first_matching_input(self, workflow, input_name, value):
+        for node in workflow.values():
+            inputs = node.get("inputs", {})
+            if input_name in inputs:
+                inputs[input_name] = value
+                return True
+        return False
+
+    def _frame_count(self, duration, fps=24):
+        frames = max(9, int(round(float(duration) * fps)))
+        remainder = (frames - 1) % 4
+        if remainder:
+            frames += 4 - remainder
+        return frames
+
+    def _generate_start_end_video(
+        self,
+        start_image_filepath,
+        end_image_filepath,
+        prompt,
+        width,
+        height,
+        duration,
+        seed,
+        progress,
+    ):
+        workflow_source = self._start_end_workflow_source()
+        if not workflow_source:
+            raise gr.Error(
+                "Start/End Image-to-Video needs an exported ComfyUI API workflow at "
+                "`runpod/workflows/api/wan_first_last_frame_to_video_api.json` or "
+                "`/workspace/workflows/wan_first_last_frame_to_video_api.json`."
+            )
+
+        if start_image_filepath is None:
+            raise gr.Error("Upload a starting image.")
+        if end_image_filepath is None:
+            raise gr.Error("Upload an ending image.")
+
+        workflow = load_workflow(workflow_source)
+        start_name = self._copy_image_to_input(start_image_filepath, "start_end_i2v_start")
+        end_name = self._copy_image_to_input(end_image_filepath, "start_end_i2v_end")
+        video_width = max(256, round(width / 16) * 16)
+        video_height = max(256, round(height / 16) * 16)
+        fps = int(os.environ.get("START_END_I2V_FPS", "24"))
+        frame_count = self._frame_count(duration, fps=fps)
+
+        start_patched = self._set_input_from_env(
+            workflow, "START_END_I2V_START_IMAGE_NODE", "image", start_name
+        ) or self._patch_load_image_by_hint(
+            workflow, start_name, ("start", "first", "begin", "initial")
+        )
+        end_patched = self._set_input_from_env(
+            workflow, "START_END_I2V_END_IMAGE_NODE", "image", end_name
+        ) or self._patch_load_image_by_hint(
+            workflow, end_name, ("end", "last", "final")
+        )
+        if not start_patched or not end_patched:
+            raise gr.Error(
+                "The start/end workflow must contain two LoadImage nodes titled or named for start/first "
+                "and end/last, or set START_END_I2V_START_IMAGE_NODE and START_END_I2V_END_IMAGE_NODE."
+            )
+
+        self._set_input_from_env(workflow, "START_END_I2V_PROMPT_NODE", "text", prompt) or self._patch_inputs_by_hint(
+            workflow, "text", prompt, ("positive", "prompt")
+        )
+        self._set_input_from_env(workflow, "START_END_I2V_WIDTH_NODE", "width", video_width) or self._patch_first_matching_input(
+            workflow, "width", video_width
+        )
+        self._set_input_from_env(workflow, "START_END_I2V_HEIGHT_NODE", "height", video_height) or self._patch_first_matching_input(
+            workflow, "height", video_height
+        )
+        self._set_first_existing_input_from_env(
+            workflow, "START_END_I2V_LENGTH_NODE", ("length", "num_frames"), frame_count
+        ) or self._patch_first_matching_input(
+            workflow, "length", frame_count
+        ) or self._patch_first_matching_input(
+            workflow, "num_frames", frame_count
+        )
+        self._set_first_existing_input_from_env(
+            workflow, "START_END_I2V_SEED_NODE", ("noise_seed", "seed"), int(seed)
+        ) or self._patch_first_matching_input(
+            workflow, "noise_seed", int(seed)
+        ) or self._patch_first_matching_input(
+            workflow, "seed", int(seed)
+        )
+        self._set_input_from_env(workflow, "START_END_I2V_FPS_NODE", "frame_rate", fps) or self._patch_first_matching_input(
+            workflow, "frame_rate", fps
+        )
+        prefix = f"start_end_i2v_{int(time.time() * 1000)}"
+        self._set_input_from_env(
+            workflow, "START_END_I2V_OUTPUT_NODE", "filename_prefix", prefix
+        ) or self._patch_first_matching_input(workflow, "filename_prefix", prefix)
+
+        progress(0.2, desc="Queuing start/end image-to-video generation...")
+        started_at = time.time()
+        log_offset = self.comfy.log_offset()
+        prompt_id = self.comfy.queue_prompt(workflow)["prompt_id"]
+        self.comfy.wait_for_prompt(prompt_id, progress, log_offset=log_offset)
+
+        video = self.comfy.latest_video(since=started_at)
+        if video is None:
+            raise gr.Error("ComfyUI finished but no MP4 output was found.")
+
+        progress(1.0, desc="Done")
+        return video
+
+    def generate(self, mode, image_filepath, end_image_filepath, prompt, width, height, duration, seed, progress):
         if not prompt or not prompt.strip():
             raise gr.Error("Enter a prompt.")
 
         progress(0, desc="Starting ComfyUI...")
         self.comfy.ensure_running()
         os.makedirs(self.comfy.input_path, exist_ok=True)
+
+        if mode == "Start/End Image-to-Video":
+            return self._generate_start_end_video(
+                start_image_filepath=image_filepath,
+                end_image_filepath=end_image_filepath,
+                prompt=prompt,
+                width=width,
+                height=height,
+                duration=duration,
+                seed=seed,
+                progress=progress,
+            )
 
         video_width = max(256, round(width / 32) * 32)
         video_height = max(256, round(height / 32) * 32)

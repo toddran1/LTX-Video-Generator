@@ -54,11 +54,15 @@ WORKFLOW_URL = os.environ.get(
     "WORKFLOW_URL",
     "https://raw.githubusercontent.com/AICHUCKY/Comfyui-Workflows/AICHUCKY-patch-1/Ltx2.3%20.json",
 )
+START_END_I2V_WORKFLOW = os.environ.get(
+    "START_END_I2V_WORKFLOW_PATH",
+    "runpod/workflows/api/wan_first_last_frame_to_video_api.json",
+)
 
 
 manifest = load_manifest()
 comfy = ComfyClient(COMFY_PATH, COMFY_PORT)
-ltx_provider = LtxTextImageProvider(comfy, WORKFLOW_URL)
+ltx_provider = LtxTextImageProvider(comfy, WORKFLOW_URL, START_END_I2V_WORKFLOW)
 v2v_backends = enabled_v2v_backends(manifest)
 v2v_provider_by_label = {
     backend.get("label", backend["id"]): ComfyVideoToVideoProvider(comfy, backend)
@@ -263,6 +267,7 @@ def refresh_v2v_dashboard(selected_job_id=None):
 def generate_ltx_video(
     mode,
     image_filepath,
+    end_image_filepath,
     prompt,
     width,
     height,
@@ -273,6 +278,7 @@ def generate_ltx_video(
     return ltx_provider.generate(
         mode=mode,
         image_filepath=image_filepath,
+        end_image_filepath=end_image_filepath,
         prompt=prompt,
         width=width,
         height=height,
@@ -589,11 +595,12 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
         with gr.Row():
             with gr.Column(scale=1):
                 mode_selector = gr.Radio(
-                    ["Text-to-Video", "Image-to-Video"],
+                    ["Text-to-Video", "Image-to-Video", "Start/End Image-to-Video"],
                     value="Text-to-Video",
                     label="Generation Mode",
                 )
                 image_input = gr.Image(type="filepath", label="Starting Image", visible=False)
+                end_image_input = gr.Image(type="filepath", label="Ending Image", visible=False)
                 prompt_input = gr.Textbox(label="Prompt", placeholder="A cinematic shot...", lines=3)
                 with gr.Row():
                     width_slider = gr.Slider(minimum=256, maximum=1920, step=32, value=832, label="Width")
@@ -712,12 +719,14 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
     poll_timer = gr.Timer(5)
 
     def update_visibility(mode):
-        return gr.update(visible=(mode == "Image-to-Video"))
+        needs_start_image = mode in {"Image-to-Video", "Start/End Image-to-Video"}
+        needs_end_image = mode == "Start/End Image-to-Video"
+        return gr.update(visible=needs_start_image), gr.update(visible=needs_end_image)
 
     def update_reference_index_visibility(reference_mode):
         return gr.update(visible=(reference_mode == "specific"))
 
-    mode_selector.change(fn=update_visibility, inputs=mode_selector, outputs=image_input)
+    mode_selector.change(fn=update_visibility, inputs=mode_selector, outputs=[image_input, end_image_input])
     reference_mode_input.change(
         fn=update_reference_index_visibility,
         inputs=reference_mode_input,
@@ -728,6 +737,7 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
         inputs=[
             mode_selector,
             image_input,
+            end_image_input,
             prompt_input,
             width_slider,
             height_slider,
