@@ -3,6 +3,7 @@ set -euo pipefail
 
 COMFY_PATH="${COMFY_PATH:-/workspace/ComfyUI}"
 MODEL_ROOT="${MODEL_ROOT:-${COMFY_PATH}/models}"
+COMFY_MODEL_ROOT="${COMFY_PATH}/models"
 NETWORK_ROOT="${NETWORK_ROOT:-/workspace}"
 WORKFLOW_ROOT="${WORKFLOW_ROOT:-${NETWORK_ROOT}/workflows}"
 PYTHON_BIN="${PYTHON_BIN:-/opt/venvs/imagegen/bin/python}"
@@ -20,6 +21,11 @@ fi
 
 mkdir -p \
   "${WORKFLOW_ROOT}/source" \
+  "${COMFY_MODEL_ROOT}/clip_vision" \
+  "${COMFY_MODEL_ROOT}/diffusion_models/WanVideo" \
+  "${COMFY_MODEL_ROOT}/loras" \
+  "${COMFY_MODEL_ROOT}/text_encoders" \
+  "${COMFY_MODEL_ROOT}/vae/WanVideo" \
   "${MODEL_ROOT}/clip_vision" \
   "${MODEL_ROOT}/diffusion_models/WanVideo" \
   "${MODEL_ROOT}/loras" \
@@ -64,6 +70,41 @@ download_file() {
     "${url}"
 }
 
+expose_model() {
+  local subdir="$1"
+  local filename="$2"
+  local source_path="${MODEL_ROOT}/${subdir}/${filename}"
+  local target_dir="${COMFY_MODEL_ROOT}/${subdir}"
+  local target_path="${target_dir}/${filename}"
+
+  mkdir -p "${target_dir}"
+  if [ "${MODEL_ROOT}" = "${COMFY_MODEL_ROOT}" ]; then
+    return 0
+  fi
+
+  if [ ! -f "${source_path}" ]; then
+    echo "Expected model is missing after download: ${source_path}"
+    exit 1
+  fi
+
+  if [ -e "${target_path}" ] && [ ! -L "${target_path}" ]; then
+    echo "Keeping existing ComfyUI model file: ${target_path}"
+    return 0
+  fi
+
+  ln -sfn "${source_path}" "${target_path}"
+  echo "Linked ${target_path} -> ${source_path}"
+}
+
+install_model() {
+  local url="$1"
+  local subdir="$2"
+  local filename="$3"
+
+  download_file "${url}" "${MODEL_ROOT}/${subdir}" "${filename}"
+  expose_model "${subdir}" "${filename}"
+}
+
 echo "[2/5] Installing Wan FLF2V custom nodes"
 install_custom_node \
   "https://github.com/kijai/ComfyUI-WanVideoWrapper" \
@@ -78,29 +119,29 @@ install_custom_node \
   "${COMFY_PATH}/custom_nodes/ComfyUI-VideoHelperSuite"
 
 echo "[3/5] Downloading Wan 2.1 FLF2V models"
-download_file \
+install_model \
   "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-FLF2V-14B-720P_fp8_e4m3fn.safetensors" \
-  "${MODEL_ROOT}/diffusion_models/WanVideo" \
+  "diffusion_models/WanVideo" \
   "Wan2_1-FLF2V-14B-720P_fp8_e4m3fn.safetensors"
 
-download_file \
+install_model \
   "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors" \
-  "${MODEL_ROOT}/vae/WanVideo" \
+  "vae/WanVideo" \
   "Wan2_1_VAE_bf16.safetensors"
 
-download_file \
+install_model \
   "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/umt5-xxl-enc-bf16.safetensors" \
-  "${MODEL_ROOT}/text_encoders" \
+  "text_encoders" \
   "umt5-xxl-enc-bf16.safetensors"
 
-download_file \
+install_model \
   "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors" \
-  "${MODEL_ROOT}/clip_vision" \
+  "clip_vision" \
   "open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors"
 
-download_file \
+install_model \
   "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan21_T2V_14B_lightx2v_cfg_step_distill_lora_rank32.safetensors" \
-  "${MODEL_ROOT}/loras" \
+  "loras" \
   "Wan21_T2V_14B_lightx2v_cfg_step_distill_lora_rank32.safetensors"
 
 echo "[4/5] Syncing Wan FLF2V workflow files"
