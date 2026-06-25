@@ -286,6 +286,8 @@ class LtxTextImageProvider:
         workflow["346"]["inputs"]["clip_name1"] = "gemma-3-12b-it-q4_0_s.gguf"
         workflow["346"]["inputs"]["clip_name2"] = "text_encoders/ltx-2.3-22b-dev_embeddings_connectors.safetensors"
         workflow["345"]["inputs"]["unet_name"] = "ltx-2.3-22b-dev-Q4_K_M.gguf"
+        workflow["103"]["inputs"]["model"] = ["134", 0]
+        workflow["129"]["inputs"]["model"] = ["134", 0]
         workflow["127"]["inputs"]["tile_size"] = LTX_DECODE_TILE_SIZE
         workflow["127"]["inputs"]["temporal_size"] = LTX_DECODE_TEMPORAL_SIZE
         workflow["127"]["inputs"]["temporal_overlap"] = min(
@@ -318,6 +320,11 @@ class LtxTextImageProvider:
         video = self.comfy.latest_video(since=started_at)
         if video is None:
             raise gr.Error("ComfyUI finished but no MP4 output was found.")
+
+        try:
+            self.comfy.free_memory()
+        except Exception:
+            pass
 
         progress(1.0, desc="Done")
         return video

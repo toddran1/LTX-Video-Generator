@@ -161,6 +161,21 @@ class ComfyClient:
         with urllib.request.urlopen(request) as response:
             return response.read().decode("utf-8", errors="ignore")
 
+    def free_memory(self, unload_models=True, free_memory=True):
+        payload = json.dumps(
+            {
+                "unload_models": bool(unload_models),
+                "free_memory": bool(free_memory),
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/free",
+            data=payload,
+            method="POST",
+        )
+        with urllib.request.urlopen(request) as response:
+            return response.read().decode("utf-8", errors="ignore")
+
     def render_status(self, prompt_id, started_at, log_offset=0):
         elapsed = self._format_duration(time.time() - started_at)
         status = self._render_phase_status(log_offset=log_offset)
