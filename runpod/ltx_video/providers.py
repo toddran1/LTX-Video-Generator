@@ -19,11 +19,11 @@ from .media import (
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
-LTX_MAX_WIDTH = int(os.environ.get("LTX_TEXT_IMAGE_MAX_WIDTH", "1280"))
-LTX_MAX_HEIGHT = int(os.environ.get("LTX_TEXT_IMAGE_MAX_HEIGHT", "720"))
-LTX_MAX_DURATION = int(os.environ.get("LTX_TEXT_IMAGE_MAX_DURATION", "6"))
+LTX_MAX_WIDTH = int(os.environ.get("LTX_TEXT_IMAGE_MAX_WIDTH", "1920"))
+LTX_MAX_HEIGHT = int(os.environ.get("LTX_TEXT_IMAGE_MAX_HEIGHT", "1080"))
+LTX_MAX_DURATION = int(os.environ.get("LTX_TEXT_IMAGE_MAX_DURATION", "10"))
 LTX_DECODE_TILE_SIZE = int(os.environ.get("LTX_TEXT_IMAGE_DECODE_TILE_SIZE", "256"))
-LTX_DECODE_TEMPORAL_SIZE = int(os.environ.get("LTX_TEXT_IMAGE_DECODE_TEMPORAL_SIZE", "64"))
+LTX_DECODE_TEMPORAL_SIZE = int(os.environ.get("LTX_TEXT_IMAGE_DECODE_TEMPORAL_SIZE", "32"))
 
 
 def uploaded_path(value):

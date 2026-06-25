@@ -163,30 +163,60 @@ class ComfyClient:
 
     def render_status(self, prompt_id, started_at, log_offset=0):
         elapsed = self._format_duration(time.time() - started_at)
-        latest_step = self._latest_step_line(log_offset=log_offset)
-        percent = 0.5
-        message = f"Rendering... elapsed {elapsed}; prompt {prompt_id}"
-
-        if latest_step:
-            step_percent = self._step_percent(latest_step)
-            if step_percent is not None:
-                percent = 0.2 + (step_percent * 0.7)
-            message = f"{latest_step} | elapsed {elapsed}; prompt {prompt_id}"
+        status = self._render_phase_status(log_offset=log_offset)
+        percent = status.get("percent", 0.2)
+        message = status.get("message") or "Queued or loading workflow"
+        message = f"{message} | elapsed {elapsed}; prompt {prompt_id}"
 
         return min(max(percent, 0.2), 0.9), message
 
-    def _latest_step_line(self, log_offset=0):
+    def _render_phase_status(self, log_offset=0):
         text = self._recent_log_text(log_offset=log_offset)
         if not text:
-            return None
+            return {"percent": 0.2, "message": "Queued or loading workflow"}
 
-        text = text.replace("\x00", "")
-        candidates = re.split(r"[\r\n]+", text)
-        for line in reversed(candidates):
-            cleaned = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", line).strip()
-            if re.search(r"\d+%\|.*\|\s*\d+/\d+\s*\[", cleaned):
-                return cleaned
-        return None
+        clean_text = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text.replace("\x00", ""))
+        lines = [line.strip() for line in re.split(r"[\r\n]+", clean_text) if line.strip()]
+        step_lines = [line for line in lines if re.search(r"\d+%\|.*\|\s*\d+/\d+\s*\[", line)]
+        latest_step = step_lines[-1] if step_lines else None
+
+        if "Prompt executed in" in clean_text:
+            return {"percent": 0.9, "message": "Finalizing output"}
+        if "Save Video" in clean_text or "VHS_VideoCombine" in clean_text or "Create Video" in clean_text:
+            return {"percent": 0.86, "message": "Encoding and saving video"}
+        if "Audio VAE Decode" in clean_text or "Requested to load AudioVAE" in clean_text:
+            return {"percent": 0.82, "message": "Decoding audio"}
+        if "VAE Decode" in clean_text or "VAEDecode" in clean_text:
+            return {"percent": 0.78, "message": "Decoding video frames"}
+
+        if latest_step:
+            step_percent = self._step_percent(latest_step)
+            step_count = self._step_count(latest_step)
+            pass_index = self._sampling_pass_index(step_lines)
+            total_passes = self._estimated_sampling_pass_count(step_lines)
+            percent = 0.25
+            if step_percent is not None:
+                pass_span = 0.5 / max(total_passes, 1)
+                percent = 0.25 + ((pass_index - 1) * pass_span) + (step_percent * pass_span)
+
+            pass_label = f" pass {pass_index}/{total_passes}" if total_passes > 1 else ""
+            if step_count:
+                current, total = step_count
+                message = f"Sampling{pass_label}: step {current}/{total}"
+            else:
+                message = f"Sampling{pass_label}: {latest_step}"
+            return {"percent": percent, "message": message}
+
+        if "Requested to load LTXAV" in clean_text:
+            return {"percent": 0.18, "message": "Loading LTX video model"}
+        if "Requested to load LTXAVTEModel" in clean_text or "CLIP/text encoder model load" in clean_text:
+            return {"percent": 0.14, "message": "Loading text encoder"}
+        if "VAE load device" in clean_text:
+            return {"percent": 0.1, "message": "Loading VAE"}
+        if "got prompt" in clean_text:
+            return {"percent": 0.05, "message": "Prompt accepted by ComfyUI"}
+
+        return {"percent": 0.2, "message": "Preparing generation"}
 
     def _recent_log_text(self, log_offset=0):
         if not os.path.exists(self.log_path):
@@ -207,6 +237,38 @@ class ComfyClient:
         if not match:
             return None
         return int(match.group(1)) / 100
+
+    def _step_count(self, step_line):
+        match = re.search(r"\|\s*(\d+)/(\d+)\s*\[", step_line)
+        if not match:
+            return None
+        return int(match.group(1)), int(match.group(2))
+
+    def _sampling_pass_index(self, step_lines):
+        if not step_lines:
+            return 1
+
+        pass_index = 1
+        previous_current = None
+        for line in step_lines:
+            step_count = self._step_count(line)
+            if not step_count:
+                continue
+            current, _ = step_count
+            if previous_current is not None and current < previous_current:
+                pass_index += 1
+            previous_current = current
+        return pass_index
+
+    def _estimated_sampling_pass_count(self, step_lines):
+        totals = []
+        for line in step_lines:
+            step_count = self._step_count(line)
+            if step_count:
+                totals.append(step_count[1])
+        if len(set(totals)) >= 2:
+            return len(set(totals))
+        return max(1, self._sampling_pass_index(step_lines))
 
     def _format_duration(self, seconds):
         seconds = int(seconds)

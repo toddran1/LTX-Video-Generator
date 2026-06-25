@@ -58,9 +58,9 @@ START_END_I2V_WORKFLOW = os.environ.get(
     "START_END_I2V_WORKFLOW_PATH",
     "runpod/workflows/api/wan_first_last_frame_to_video_api.json",
 )
-LTX_TEXT_IMAGE_MAX_WIDTH = int(os.environ.get("LTX_TEXT_IMAGE_MAX_WIDTH", "1280"))
-LTX_TEXT_IMAGE_MAX_HEIGHT = int(os.environ.get("LTX_TEXT_IMAGE_MAX_HEIGHT", "720"))
-LTX_TEXT_IMAGE_MAX_DURATION = int(os.environ.get("LTX_TEXT_IMAGE_MAX_DURATION", "6"))
+LTX_TEXT_IMAGE_MAX_WIDTH = int(os.environ.get("LTX_TEXT_IMAGE_MAX_WIDTH", "1920"))
+LTX_TEXT_IMAGE_MAX_HEIGHT = int(os.environ.get("LTX_TEXT_IMAGE_MAX_HEIGHT", "1080"))
+LTX_TEXT_IMAGE_MAX_DURATION = int(os.environ.get("LTX_TEXT_IMAGE_MAX_DURATION", "10"))
 
 
 manifest = load_manifest()
