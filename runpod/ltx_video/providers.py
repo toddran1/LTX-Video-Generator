@@ -19,6 +19,12 @@ from .media import (
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
+LTX_MAX_WIDTH = int(os.environ.get("LTX_TEXT_IMAGE_MAX_WIDTH", "1280"))
+LTX_MAX_HEIGHT = int(os.environ.get("LTX_TEXT_IMAGE_MAX_HEIGHT", "720"))
+LTX_MAX_DURATION = int(os.environ.get("LTX_TEXT_IMAGE_MAX_DURATION", "6"))
+LTX_DECODE_TILE_SIZE = int(os.environ.get("LTX_TEXT_IMAGE_DECODE_TILE_SIZE", "256"))
+LTX_DECODE_TEMPORAL_SIZE = int(os.environ.get("LTX_TEXT_IMAGE_DECODE_TEMPORAL_SIZE", "64"))
+
 
 def uploaded_path(value):
     if value is None:
@@ -255,15 +261,18 @@ class LtxTextImageProvider:
                 progress=progress,
             )
 
-        video_width = max(256, round(width / 32) * 32)
-        video_height = max(256, round(height / 32) * 32)
+        video_width = min(LTX_MAX_WIDTH, max(256, round(width / 32) * 32))
+        video_height = min(LTX_MAX_HEIGHT, max(256, round(height / 32) * 32))
+        video_width = max(256, round(video_width / 32) * 32)
+        video_height = max(256, round(video_height / 32) * 32)
+        video_duration = min(LTX_MAX_DURATION, max(1, int(duration)))
         workflow = load_workflow(self.workflow_url)
 
         workflow["292"]["inputs"]["value"] = video_width
         workflow["293"]["inputs"]["value"] = video_height
         workflow["285"]["inputs"]["value"] = 24
         workflow["121"]["inputs"]["text"] = prompt
-        workflow["291"]["inputs"]["value"] = duration
+        workflow["291"]["inputs"]["value"] = video_duration
         workflow["137"]["inputs"]["sampler_name"] = "lcm"
         workflow["360"]["inputs"]["sigmas"] = "1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0"
         workflow["129"]["inputs"]["cfg"] = 1.0
@@ -277,6 +286,12 @@ class LtxTextImageProvider:
         workflow["346"]["inputs"]["clip_name1"] = "gemma-3-12b-it-q4_0_s.gguf"
         workflow["346"]["inputs"]["clip_name2"] = "text_encoders/ltx-2.3-22b-dev_embeddings_connectors.safetensors"
         workflow["345"]["inputs"]["unet_name"] = "ltx-2.3-22b-dev-Q4_K_M.gguf"
+        workflow["127"]["inputs"]["tile_size"] = LTX_DECODE_TILE_SIZE
+        workflow["127"]["inputs"]["temporal_size"] = LTX_DECODE_TEMPORAL_SIZE
+        workflow["127"]["inputs"]["temporal_overlap"] = min(
+            int(workflow["127"]["inputs"].get("temporal_overlap", 8)),
+            max(0, LTX_DECODE_TEMPORAL_SIZE // 4),
+        )
 
         progress(0.1, desc="Preparing inputs...")
         if mode == "Text-to-Video":

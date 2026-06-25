@@ -257,6 +257,8 @@ The `LTX Text / Image` tab has three modes:
 - `Image-to-Video`: existing single starting image LTX 2.3 flow.
 - `Start/End Image-to-Video`: first-frame and last-frame image flow. This requires a ComfyUI API workflow exported to `runpod/workflows/api/wan_first_last_frame_to_video_api.json` in the repo or `/workspace/workflows/wan_first_last_frame_to_video_api.json` on the pod.
 
+The LTX text/image workflow is capped by default at `1280x720` and `6s`. The earlier `1920x1056` / `10s` settings can complete sampling but crash during tiled VAE decode on the current ComfyUI/PyTorch stack. Override these only for testing with `LTX_TEXT_IMAGE_MAX_WIDTH`, `LTX_TEXT_IMAGE_MAX_HEIGHT`, `LTX_TEXT_IMAGE_MAX_DURATION`, `LTX_TEXT_IMAGE_DECODE_TILE_SIZE`, and `LTX_TEXT_IMAGE_DECODE_TEMPORAL_SIZE`.
+
 For the start/end workflow, use a graph based on Wan first/last-frame nodes such as `WanFirstLastFrameToVideo`, `WanVideoImageToVideoEncode`, or `WanVideoVACEStartToEndFrame`. The app automatically patches two `LoadImage` nodes whose titles or placeholder filenames contain `start`/`first` and `end`/`last`. If your exported workflow uses different names, set these env vars before `bash runpod/run_ui.sh`:
 
 ```bash

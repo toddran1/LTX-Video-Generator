@@ -58,6 +58,9 @@ START_END_I2V_WORKFLOW = os.environ.get(
     "START_END_I2V_WORKFLOW_PATH",
     "runpod/workflows/api/wan_first_last_frame_to_video_api.json",
 )
+LTX_TEXT_IMAGE_MAX_WIDTH = int(os.environ.get("LTX_TEXT_IMAGE_MAX_WIDTH", "1280"))
+LTX_TEXT_IMAGE_MAX_HEIGHT = int(os.environ.get("LTX_TEXT_IMAGE_MAX_HEIGHT", "720"))
+LTX_TEXT_IMAGE_MAX_DURATION = int(os.environ.get("LTX_TEXT_IMAGE_MAX_DURATION", "6"))
 
 
 manifest = load_manifest()
@@ -603,10 +606,28 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
                 end_image_input = gr.Image(type="filepath", label="Ending Image", visible=False)
                 prompt_input = gr.Textbox(label="Prompt", placeholder="A cinematic shot...", lines=3)
                 with gr.Row():
-                    width_slider = gr.Slider(minimum=256, maximum=1920, step=32, value=832, label="Width")
-                    height_slider = gr.Slider(minimum=256, maximum=1080, step=32, value=480, label="Height")
+                    width_slider = gr.Slider(
+                        minimum=256,
+                        maximum=LTX_TEXT_IMAGE_MAX_WIDTH,
+                        step=32,
+                        value=min(832, LTX_TEXT_IMAGE_MAX_WIDTH),
+                        label="Width",
+                    )
+                    height_slider = gr.Slider(
+                        minimum=256,
+                        maximum=LTX_TEXT_IMAGE_MAX_HEIGHT,
+                        step=32,
+                        value=min(480, LTX_TEXT_IMAGE_MAX_HEIGHT),
+                        label="Height",
+                    )
                 with gr.Row():
-                    duration_slider = gr.Slider(minimum=1, maximum=10, step=1, value=3, label="Duration")
+                    duration_slider = gr.Slider(
+                        minimum=1,
+                        maximum=LTX_TEXT_IMAGE_MAX_DURATION,
+                        step=1,
+                        value=min(3, LTX_TEXT_IMAGE_MAX_DURATION),
+                        label="Duration",
+                    )
                     seed_input = gr.Number(value=43, label="Seed", precision=0)
                 generate_btn = gr.Button("Generate Video", variant="primary")
             with gr.Column(scale=1):

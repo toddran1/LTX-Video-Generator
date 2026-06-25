@@ -98,6 +98,10 @@ class ComfyClient:
             except Exception:
                 pass
 
+            error_message = self.latest_error_message(log_offset=log_offset)
+            if error_message:
+                raise gr.Error(error_message)
+
             percent, status = self.render_status(prompt_id, started_at, log_offset=log_offset)
             progress(percent, desc=status)
             time.sleep(3)
@@ -126,6 +130,28 @@ class ComfyClient:
                 return exception
         return None
 
+    def latest_error_message(self, log_offset=0):
+        text = self._recent_log_text(log_offset=log_offset)
+        if not text:
+            return None
+
+        clean_text = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text.replace("\x00", ""))
+        patterns = [
+            r"!!! Exception during processing !!!\s*(.+)",
+            r"(CUDA error: .+)",
+            r"(ValueError: .+)",
+            r"(RuntimeError: .+)",
+        ]
+        for pattern in patterns:
+            matches = re.findall(pattern, clean_text)
+            if matches:
+                message = str(matches[-1]).strip().splitlines()[0]
+                return f"ComfyUI generation failed: {message}"
+
+        if "Exception in thread" in clean_text and "prompt_worker" in clean_text:
+            return "ComfyUI generation failed: prompt worker crashed."
+        return None
+
     def interrupt(self):
         request = urllib.request.Request(
             f"http://127.0.0.1:{self.port}/interrupt",
@@ -150,17 +176,8 @@ class ComfyClient:
         return min(max(percent, 0.2), 0.9), message
 
     def _latest_step_line(self, log_offset=0):
-        if not os.path.exists(self.log_path):
-            return None
-
-        try:
-            with open(self.log_path, "rb") as log_file:
-                log_file.seek(0, os.SEEK_END)
-                size = log_file.tell()
-                start = max(int(log_offset or 0), size - 200_000, 0)
-                log_file.seek(start)
-                text = log_file.read().decode("utf-8", errors="ignore")
-        except OSError:
+        text = self._recent_log_text(log_offset=log_offset)
+        if not text:
             return None
 
         text = text.replace("\x00", "")
@@ -170,6 +187,20 @@ class ComfyClient:
             if re.search(r"\d+%\|.*\|\s*\d+/\d+\s*\[", cleaned):
                 return cleaned
         return None
+
+    def _recent_log_text(self, log_offset=0):
+        if not os.path.exists(self.log_path):
+            return None
+
+        try:
+            with open(self.log_path, "rb") as log_file:
+                log_file.seek(0, os.SEEK_END)
+                size = log_file.tell()
+                start = max(int(log_offset or 0), size - 200_000, 0)
+                log_file.seek(start)
+                return log_file.read().decode("utf-8", errors="ignore")
+        except OSError:
+            return None
 
     def _step_percent(self, step_line):
         match = re.search(r"(\d+)%\|", step_line)
