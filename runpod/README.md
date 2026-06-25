@@ -255,14 +255,14 @@ The `LTX Text / Image` tab has three modes:
 
 - `Text-to-Video`: existing text-only LTX 2.3 flow.
 - `Image-to-Video`: existing single starting image LTX 2.3 flow.
-- `Start/End Image-to-Video`: first-frame and last-frame image flow. This requires a ComfyUI API workflow exported to `runpod/workflows/api/wan_first_last_frame_to_video_api.json` in the repo or `/workspace/workflows/wan_first_last_frame_to_video_api.json` on the pod.
+- `Start/End Image-to-Video`: first-frame and last-frame image flow. This uses the repo-tracked Wan 2.1 FLF2V API workflow at `runpod/workflows/api/wan2_1_flf2v_start_end_api.json` or `/workspace/workflows/wan2_1_flf2v_start_end_api.json` on the pod.
 
 The LTX text/image workflow allows up to `1920x1080` and `10s`. Full-resolution generations are slower and put most pressure on VAE decode, so the app patches smaller decode tiles by default. Tune with `LTX_TEXT_IMAGE_DECODE_TILE_SIZE` and `LTX_TEXT_IMAGE_DECODE_TEMPORAL_SIZE`; use the `LTX_TEXT_IMAGE_MAX_WIDTH`, `LTX_TEXT_IMAGE_MAX_HEIGHT`, and `LTX_TEXT_IMAGE_MAX_DURATION` env vars only if you intentionally want to change the UI limits.
 
-For the start/end workflow, use a graph based on Wan first/last-frame nodes such as `WanFirstLastFrameToVideo`, `WanVideoImageToVideoEncode`, or `WanVideoVACEStartToEndFrame`. The app automatically patches two `LoadImage` nodes whose titles or placeholder filenames contain `start`/`first` and `end`/`last`. If your exported workflow uses different names, set these env vars before `bash runpod/run_ui.sh`:
+For the start/end workflow, run `bash runpod/setup_wan21_flf2v_start_end.sh` once on the pod. It installs WanVideoWrapper dependencies, downloads the Wan 2.1 FLF2V model files, and syncs the checked-in API workflow. This model stack needs roughly 30 GB of free model storage and may not fit on a 50 GB pod volume beside the LTX 2.3 stack. You can still override it with another first/last-frame graph based on nodes such as `WanVideoImageToVideoEncode` or `WanVideoVACEStartToEndFrame`. The app automatically patches two `LoadImage` nodes whose titles or placeholder filenames contain `start`/`first` and `end`/`last`. If your exported workflow uses different names, set these env vars before `bash runpod/run_ui.sh`:
 
 ```bash
-export START_END_I2V_WORKFLOW_PATH=/workspace/workflows/wan_first_last_frame_to_video_api.json
+export START_END_I2V_WORKFLOW_PATH=/workspace/workflows/wan2_1_flf2v_start_end_api.json
 export START_END_I2V_START_IMAGE_NODE=<load-image-node-id>
 export START_END_I2V_END_IMAGE_NODE=<load-image-node-id>
 export START_END_I2V_PROMPT_NODE=<positive-prompt-node-id>
@@ -468,20 +468,20 @@ echo $! > runpod/ui.pid
 
 ### Start/End Image-To-Video Says The Workflow Is Missing
 
-Export a ComfyUI API workflow for a first/last-frame Wan image-to-video graph and place it at:
+Run the Wan FLF2V setup script and confirm this workflow exists:
 
 ```text
-/workspace/modal-notebook/runpod/workflows/api/wan_first_last_frame_to_video_api.json
+/workspace/modal-notebook/runpod/workflows/api/wan2_1_flf2v_start_end_api.json
 ```
 
-Then sync repo workflows into the pod workflow directory:
+If you only changed workflow files, sync repo workflows into the pod workflow directory:
 
 ```bash
 cd /workspace/modal-notebook
 bash runpod/sync_repo_workflows.sh
 ```
 
-The fallback path `/workspace/workflows/wan_first_last_frame_to_video_api.json` also works. Restart the UI after adding the workflow.
+Restart the UI after adding or changing the workflow. The legacy fallback name `wan_first_last_frame_to_video_api.json` is still accepted if you override `START_END_I2V_WORKFLOW_PATH`.
 
 ### Local Tunnel Says Address Already In Use
 

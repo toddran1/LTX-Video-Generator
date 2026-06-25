@@ -55,6 +55,8 @@ class LtxTextImageProvider:
         candidates = [
             os.environ.get("START_END_I2V_WORKFLOW_PATH"),
             self.start_end_workflow,
+            "runpod/workflows/api/wan2_1_flf2v_start_end_api.json",
+            "/workspace/workflows/wan2_1_flf2v_start_end_api.json",
             "runpod/workflows/api/wan_first_last_frame_to_video_api.json",
             "/workspace/workflows/wan_first_last_frame_to_video_api.json",
         ]
@@ -142,6 +144,15 @@ class LtxTextImageProvider:
                 return True
         return False
 
+    def _patch_all_matching_inputs(self, workflow, input_name, value):
+        patched = False
+        for node in workflow.values():
+            inputs = node.get("inputs", {})
+            if input_name in inputs:
+                inputs[input_name] = value
+                patched = True
+        return patched
+
     def _frame_count(self, duration, fps=24):
         frames = max(9, int(round(float(duration) * fps)))
         remainder = (frames - 1) % 4
@@ -164,8 +175,8 @@ class LtxTextImageProvider:
         if not workflow_source:
             raise gr.Error(
                 "Start/End Image-to-Video needs an exported ComfyUI API workflow at "
-                "`runpod/workflows/api/wan_first_last_frame_to_video_api.json` or "
-                "`/workspace/workflows/wan_first_last_frame_to_video_api.json`."
+                "`runpod/workflows/api/wan2_1_flf2v_start_end_api.json` or "
+                "`/workspace/workflows/wan2_1_flf2v_start_end_api.json`."
             )
 
         if start_image_filepath is None:
@@ -200,10 +211,10 @@ class LtxTextImageProvider:
         self._set_input_from_env(workflow, "START_END_I2V_PROMPT_NODE", "text", prompt) or self._patch_inputs_by_hint(
             workflow, "text", prompt, ("positive", "prompt")
         )
-        self._set_input_from_env(workflow, "START_END_I2V_WIDTH_NODE", "width", video_width) or self._patch_first_matching_input(
+        self._set_input_from_env(workflow, "START_END_I2V_WIDTH_NODE", "width", video_width) or self._patch_all_matching_inputs(
             workflow, "width", video_width
         )
-        self._set_input_from_env(workflow, "START_END_I2V_HEIGHT_NODE", "height", video_height) or self._patch_first_matching_input(
+        self._set_input_from_env(workflow, "START_END_I2V_HEIGHT_NODE", "height", video_height) or self._patch_all_matching_inputs(
             workflow, "height", video_height
         )
         self._set_first_existing_input_from_env(

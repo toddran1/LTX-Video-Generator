@@ -56,7 +56,7 @@ WORKFLOW_URL = os.environ.get(
 )
 START_END_I2V_WORKFLOW = os.environ.get(
     "START_END_I2V_WORKFLOW_PATH",
-    "runpod/workflows/api/wan_first_last_frame_to_video_api.json",
+    "runpod/workflows/api/wan2_1_flf2v_start_end_api.json",
 )
 LTX_TEXT_IMAGE_MAX_WIDTH = int(os.environ.get("LTX_TEXT_IMAGE_MAX_WIDTH", "1920"))
 LTX_TEXT_IMAGE_MAX_HEIGHT = int(os.environ.get("LTX_TEXT_IMAGE_MAX_HEIGHT", "1080"))

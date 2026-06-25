@@ -21,13 +21,13 @@ The app prefers this repo-tracked path when it exists. If it is missing, it fall
 The `LTX Text / Image` tab includes a `Start/End Image-to-Video` mode. It expects a first-frame/last-frame ComfyUI API workflow at:
 
 ```text
-runpod/workflows/api/wan_first_last_frame_to_video_api.json
+runpod/workflows/api/wan2_1_flf2v_start_end_api.json
 ```
 
 or, on the pod:
 
 ```text
-/workspace/workflows/wan_first_last_frame_to_video_api.json
+/workspace/workflows/wan2_1_flf2v_start_end_api.json
 ```
 
 Use a Wan first/last-frame graph with two `LoadImage` nodes. Name or title those nodes with `start`/`first` and `end`/`last`, or set the explicit `START_END_I2V_*_NODE` env vars described in `runpod/README.md`.
