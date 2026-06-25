@@ -34,9 +34,12 @@ def _save_jobs_unlocked(jobs):
         json.dump(jobs, jobs_file, indent=2)
 
 
-def list_jobs():
+def list_jobs(job_type=None):
     with _LOCK:
-        return _load_jobs_unlocked()
+        jobs = _load_jobs_unlocked()
+    if not job_type:
+        return jobs
+    return [job for job in jobs if job.get("type") == job_type]
 
 
 def get_job(job_id):
@@ -47,9 +50,9 @@ def get_job(job_id):
     return None
 
 
-def latest_active_job():
+def latest_active_job(job_type=None):
     active_statuses = {"starting", "running", "cancelling"}
-    jobs = list_jobs()
+    jobs = list_jobs(job_type=job_type)
     active = [job for job in jobs if job.get("status") in active_statuses]
     if not active:
         return None

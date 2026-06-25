@@ -68,6 +68,12 @@ class LtxTextImageProvider:
                 return source
         return None
 
+    def _is_repo_flf2v_workflow(self, workflow_source):
+        if not workflow_source:
+            return False
+        normalized = workflow_source.replace("\\", "/")
+        return normalized.endswith("/wan2_1_flf2v_start_end_api.json")
+
     def _copy_image_to_input(self, image_filepath, prefix):
         source_path = uploaded_path(image_filepath)
         if source_path is None:
@@ -160,6 +166,9 @@ class LtxTextImageProvider:
             frames += 4 - remainder
         return frames
 
+    def _reference_fit_mode(self):
+        return os.environ.get("VIDEO_REFERENCE_FIT_MODE", "pad_edge")
+
     def _generate_start_end_video(
         self,
         start_image_filepath,
@@ -192,52 +201,70 @@ class LtxTextImageProvider:
         fps = int(os.environ.get("START_END_I2V_FPS", "24"))
         frame_count = self._frame_count(duration, fps=fps)
 
-        start_patched = self._set_input_from_env(
-            workflow, "START_END_I2V_START_IMAGE_NODE", "image", start_name
-        ) or self._patch_load_image_by_hint(
-            workflow, start_name, ("start", "first", "begin", "initial")
-        )
-        end_patched = self._set_input_from_env(
-            workflow, "START_END_I2V_END_IMAGE_NODE", "image", end_name
-        ) or self._patch_load_image_by_hint(
-            workflow, end_name, ("end", "last", "final")
-        )
-        if not start_patched or not end_patched:
-            raise gr.Error(
-                "The start/end workflow must contain two LoadImage nodes titled or named for start/first "
-                "and end/last, or set START_END_I2V_START_IMAGE_NODE and START_END_I2V_END_IMAGE_NODE."
+        if self._is_repo_flf2v_workflow(workflow_source):
+            self._set_input(workflow, "63", "image", start_name)
+            self._set_input(workflow, "58", "image", end_name)
+            self._set_input(workflow, "16", "positive_prompt", prompt)
+            self._set_input(workflow, "89", "width", video_width)
+            self._set_input(workflow, "89", "height", video_height)
+            self._set_input(workflow, "89", "num_frames", frame_count)
+            self._set_input(workflow, "107", "width", video_width)
+            self._set_input(workflow, "107", "height", video_height)
+            self._set_input(workflow, "107", "keep_proportion", self._reference_fit_mode())
+            self._set_input(workflow, "108", "width", video_width)
+            self._set_input(workflow, "108", "height", video_height)
+            self._set_input(workflow, "108", "keep_proportion", self._reference_fit_mode())
+            self._set_input(workflow, "27", "seed", int(seed))
+            self._set_input(workflow, "30", "frame_rate", fps)
+            prefix = f"start_end_i2v_{int(time.time() * 1000)}"
+            self._set_input(workflow, "30", "filename_prefix", prefix)
+        else:
+            start_patched = self._set_input_from_env(
+                workflow, "START_END_I2V_START_IMAGE_NODE", "image", start_name
+            ) or self._patch_load_image_by_hint(
+                workflow, start_name, ("start", "first", "begin", "initial")
             )
+            end_patched = self._set_input_from_env(
+                workflow, "START_END_I2V_END_IMAGE_NODE", "image", end_name
+            ) or self._patch_load_image_by_hint(
+                workflow, end_name, ("end", "last", "final")
+            )
+            if not start_patched or not end_patched:
+                raise gr.Error(
+                    "The start/end workflow must contain two LoadImage nodes titled or named for start/first "
+                    "and end/last, or set START_END_I2V_START_IMAGE_NODE and START_END_I2V_END_IMAGE_NODE."
+                )
 
-        self._set_input_from_env(workflow, "START_END_I2V_PROMPT_NODE", "text", prompt) or self._patch_inputs_by_hint(
-            workflow, "text", prompt, ("positive", "prompt")
-        )
-        self._set_input_from_env(workflow, "START_END_I2V_WIDTH_NODE", "width", video_width) or self._patch_all_matching_inputs(
-            workflow, "width", video_width
-        )
-        self._set_input_from_env(workflow, "START_END_I2V_HEIGHT_NODE", "height", video_height) or self._patch_all_matching_inputs(
-            workflow, "height", video_height
-        )
-        self._set_first_existing_input_from_env(
-            workflow, "START_END_I2V_LENGTH_NODE", ("length", "num_frames"), frame_count
-        ) or self._patch_first_matching_input(
-            workflow, "length", frame_count
-        ) or self._patch_first_matching_input(
-            workflow, "num_frames", frame_count
-        )
-        self._set_first_existing_input_from_env(
-            workflow, "START_END_I2V_SEED_NODE", ("noise_seed", "seed"), int(seed)
-        ) or self._patch_first_matching_input(
-            workflow, "noise_seed", int(seed)
-        ) or self._patch_first_matching_input(
-            workflow, "seed", int(seed)
-        )
-        self._set_input_from_env(workflow, "START_END_I2V_FPS_NODE", "frame_rate", fps) or self._patch_first_matching_input(
-            workflow, "frame_rate", fps
-        )
-        prefix = f"start_end_i2v_{int(time.time() * 1000)}"
-        self._set_input_from_env(
-            workflow, "START_END_I2V_OUTPUT_NODE", "filename_prefix", prefix
-        ) or self._patch_first_matching_input(workflow, "filename_prefix", prefix)
+            self._set_input_from_env(workflow, "START_END_I2V_PROMPT_NODE", "text", prompt) or self._patch_inputs_by_hint(
+                workflow, "text", prompt, ("positive", "prompt")
+            )
+            self._set_input_from_env(workflow, "START_END_I2V_WIDTH_NODE", "width", video_width) or self._patch_all_matching_inputs(
+                workflow, "width", video_width
+            )
+            self._set_input_from_env(workflow, "START_END_I2V_HEIGHT_NODE", "height", video_height) or self._patch_all_matching_inputs(
+                workflow, "height", video_height
+            )
+            self._set_first_existing_input_from_env(
+                workflow, "START_END_I2V_LENGTH_NODE", ("length", "num_frames"), frame_count
+            ) or self._patch_first_matching_input(
+                workflow, "length", frame_count
+            ) or self._patch_first_matching_input(
+                workflow, "num_frames", frame_count
+            )
+            self._set_first_existing_input_from_env(
+                workflow, "START_END_I2V_SEED_NODE", ("noise_seed", "seed"), int(seed)
+            ) or self._patch_first_matching_input(
+                workflow, "noise_seed", int(seed)
+            ) or self._patch_first_matching_input(
+                workflow, "seed", int(seed)
+            )
+            self._set_input_from_env(workflow, "START_END_I2V_FPS_NODE", "frame_rate", fps) or self._patch_first_matching_input(
+                workflow, "frame_rate", fps
+            )
+            prefix = f"start_end_i2v_{int(time.time() * 1000)}"
+            self._set_input_from_env(
+                workflow, "START_END_I2V_OUTPUT_NODE", "filename_prefix", prefix
+            ) or self._patch_first_matching_input(workflow, "filename_prefix", prefix)
 
         progress(0.2, desc="Queuing start/end image-to-video generation...")
         started_at = time.time()
@@ -299,6 +326,7 @@ class LtxTextImageProvider:
         workflow["345"]["inputs"]["unet_name"] = "ltx-2.3-22b-dev-Q4_K_M.gguf"
         workflow["103"]["inputs"]["model"] = ["134", 0]
         workflow["129"]["inputs"]["model"] = ["134", 0]
+        workflow["165"]["inputs"]["keep_proportion"] = self._reference_fit_mode()
         workflow["127"]["inputs"]["tile_size"] = LTX_DECODE_TILE_SIZE
         workflow["127"]["inputs"]["temporal_size"] = LTX_DECODE_TEMPORAL_SIZE
         workflow["127"]["inputs"]["temporal_overlap"] = min(

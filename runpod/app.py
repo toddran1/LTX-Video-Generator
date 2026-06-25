@@ -175,8 +175,12 @@ def _job_label(job):
     return f"{created} | {status} | {backend} | {output_name}"
 
 
-def _job_choices():
-    jobs = sorted(list_jobs(), key=lambda job: job.get("created_at", 0), reverse=True)
+def _job_choices(job_type=None):
+    jobs = sorted(
+        list_jobs(job_type=job_type),
+        key=lambda job: job.get("created_at", 0),
+        reverse=True,
+    )
     return [(_job_label(job), job["id"]) for job in jobs]
 
 
@@ -209,10 +213,10 @@ def _job_details(job):
     return "\n".join(lines)
 
 
-def _active_job_markdown():
-    job = latest_active_job()
+def _active_job_markdown(job_type=None):
+    job = latest_active_job(job_type=job_type)
     if not job:
-        return "No active video-to-video job."
+        return "No active job."
 
     status = job.get("status", "unknown")
     prompt_id = job.get("prompt_id")
@@ -248,7 +252,7 @@ def _active_job_markdown():
 
 def refresh_v2v_dashboard(selected_job_id=None):
     selected_job = get_job(selected_job_id) if selected_job_id else None
-    choices = _job_choices()
+    choices = _job_choices(job_type="video_to_video")
     if not selected_job and choices:
         selected_job_id = choices[0][1]
         selected_job = get_job(selected_job_id)
@@ -259,7 +263,31 @@ def refresh_v2v_dashboard(selected_job_id=None):
     preview_path = selected_job.get("output_path") if selected_job and selected_job.get("output_path") else None
     download_path = preview_path
     return (
-        _active_job_markdown(),
+        _active_job_markdown(job_type="video_to_video"),
+        gr.update(choices=choices, value=selected_job_id),
+        _job_details(selected_job),
+        preview_path,
+        download_path,
+    )
+
+
+def refresh_ltx_dashboard(selected_job_id=None):
+    selected_job = get_job(selected_job_id) if selected_job_id else None
+    if selected_job and selected_job.get("type") != "ltx_video":
+        selected_job = None
+
+    choices = _job_choices(job_type="ltx_video")
+    if not selected_job and choices:
+        selected_job_id = choices[0][1]
+        selected_job = get_job(selected_job_id)
+    elif selected_job_id and not selected_job and choices:
+        selected_job_id = choices[0][1]
+        selected_job = get_job(selected_job_id)
+
+    preview_path = selected_job.get("output_path") if selected_job and selected_job.get("output_path") else None
+    download_path = preview_path
+    return (
+        _active_job_markdown(job_type="ltx_video"),
         gr.update(choices=choices, value=selected_job_id),
         _job_details(selected_job),
         preview_path,
@@ -278,17 +306,47 @@ def generate_ltx_video(
     seed,
     progress=gr.Progress(),
 ):
-    return ltx_provider.generate(
-        mode=mode,
-        image_filepath=image_filepath,
-        end_image_filepath=end_image_filepath,
-        prompt=prompt,
-        width=width,
-        height=height,
-        duration=duration,
-        seed=seed,
-        progress=progress,
+    job_record = create_job(
+        {
+            "type": "ltx_video",
+            "backend_label": mode,
+            "status": "running",
+            "request": {
+                "mode": mode,
+                "prompt": prompt,
+                "width": int(width),
+                "height": int(height),
+                "duration": int(duration),
+                "seed": int(seed),
+                "image_name": os.path.basename(uploaded_path(image_filepath) or "") or None,
+                "end_image_name": os.path.basename(uploaded_path(end_image_filepath) or "") or None,
+            },
+        }
     )
+    try:
+        output_path = ltx_provider.generate(
+            mode=mode,
+            image_filepath=image_filepath,
+            end_image_filepath=end_image_filepath,
+            prompt=prompt,
+            width=width,
+            height=height,
+            duration=duration,
+            seed=seed,
+            progress=progress,
+        )
+    except Exception as error:
+        update_job(job_record["id"], status="failed", error=str(error))
+        raise
+
+    update_job(
+        job_record["id"],
+        status="completed",
+        output_path=output_path,
+        completed_at=datetime.now().timestamp(),
+        error=None,
+    )
+    return output_path
 
 
 def generate_image(
@@ -632,6 +690,17 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
                 generate_btn = gr.Button("Generate Video", variant="primary")
             with gr.Column(scale=1):
                 video_output = gr.Video(label="Generated Output")
+                ltx_active_job_status = gr.Markdown("No active LTX job.")
+                gr.Markdown("## Saved Outputs")
+                ltx_saved_jobs = gr.Radio(
+                    choices=[],
+                    label="Completed / saved jobs",
+                    value=None,
+                )
+                ltx_refresh_jobs_btn = gr.Button("Refresh")
+                ltx_saved_job_video = gr.Video(label="Saved Output Preview")
+                ltx_saved_job_download = gr.File(label="Download Selected Output")
+                ltx_saved_job_details = gr.Markdown("No saved job selected.")
 
     with gr.Tab("Video-to-Video"):
         gr.Markdown(
@@ -753,7 +822,7 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
         inputs=reference_mode_input,
         outputs=reference_index_input,
     )
-    generate_btn.click(
+    ltx_generate = generate_btn.click(
         fn=generate_ltx_video,
         inputs=[
             mode_selector,
@@ -766,6 +835,39 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
             seed_input,
         ],
         outputs=video_output,
+    )
+    ltx_generate.then(
+        fn=refresh_ltx_dashboard,
+        inputs=ltx_saved_jobs,
+        outputs=[
+            ltx_active_job_status,
+            ltx_saved_jobs,
+            ltx_saved_job_details,
+            ltx_saved_job_video,
+            ltx_saved_job_download,
+        ],
+    )
+    ltx_refresh_jobs_btn.click(
+        fn=refresh_ltx_dashboard,
+        inputs=ltx_saved_jobs,
+        outputs=[
+            ltx_active_job_status,
+            ltx_saved_jobs,
+            ltx_saved_job_details,
+            ltx_saved_job_video,
+            ltx_saved_job_download,
+        ],
+    )
+    ltx_saved_jobs.change(
+        fn=refresh_ltx_dashboard,
+        inputs=ltx_saved_jobs,
+        outputs=[
+            ltx_active_job_status,
+            ltx_saved_jobs,
+            ltx_saved_job_details,
+            ltx_saved_job_video,
+            ltx_saved_job_download,
+        ],
     )
     v2v_generate = v2v_generate_btn.click(
         fn=generate_v2v_video,
@@ -861,6 +963,17 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
             saved_job_download,
         ],
     )
+    demo.load(
+        fn=refresh_ltx_dashboard,
+        inputs=ltx_saved_jobs,
+        outputs=[
+            ltx_active_job_status,
+            ltx_saved_jobs,
+            ltx_saved_job_details,
+            ltx_saved_job_video,
+            ltx_saved_job_download,
+        ],
+    )
     poll_timer.tick(
         fn=refresh_v2v_dashboard,
         inputs=saved_jobs,
@@ -870,6 +983,17 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
             saved_job_details,
             saved_job_video,
             saved_job_download,
+        ],
+    )
+    poll_timer.tick(
+        fn=refresh_ltx_dashboard,
+        inputs=ltx_saved_jobs,
+        outputs=[
+            ltx_active_job_status,
+            ltx_saved_jobs,
+            ltx_saved_job_details,
+            ltx_saved_job_video,
+            ltx_saved_job_download,
         ],
     )
 
