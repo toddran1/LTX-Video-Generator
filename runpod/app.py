@@ -300,6 +300,7 @@ def generate_ltx_video(
     image_filepath,
     end_image_filepath,
     prompt,
+    spoken_line,
     width,
     height,
     duration,
@@ -314,6 +315,7 @@ def generate_ltx_video(
             "request": {
                 "mode": mode,
                 "prompt": prompt,
+                "spoken_line": (spoken_line or "").strip() or None,
                 "width": int(width),
                 "height": int(height),
                 "duration": int(duration),
@@ -329,6 +331,7 @@ def generate_ltx_video(
             image_filepath=image_filepath,
             end_image_filepath=end_image_filepath,
             prompt=prompt,
+            spoken_line=spoken_line,
             width=width,
             height=height,
             duration=duration,
@@ -663,6 +666,11 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
                 image_input = gr.Image(type="filepath", label="Starting Image", visible=False)
                 end_image_input = gr.Image(type="filepath", label="Ending Image", visible=False)
                 prompt_input = gr.Textbox(label="Prompt", placeholder="A cinematic shot...", lines=3)
+                spoken_line_input = gr.Textbox(
+                    label="Spoken Line",
+                    placeholder="Optional exact dialogue for the subject to speak aloud",
+                    lines=2,
+                )
                 with gr.Row():
                     width_slider = gr.Slider(
                         minimum=256,
@@ -829,6 +837,7 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
             image_input,
             end_image_input,
             prompt_input,
+            spoken_line_input,
             width_slider,
             height_slider,
             duration_slider,

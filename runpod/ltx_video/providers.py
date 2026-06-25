@@ -24,6 +24,10 @@ LTX_MAX_HEIGHT = int(os.environ.get("LTX_TEXT_IMAGE_MAX_HEIGHT", "1080"))
 LTX_MAX_DURATION = int(os.environ.get("LTX_TEXT_IMAGE_MAX_DURATION", "10"))
 LTX_DECODE_TILE_SIZE = int(os.environ.get("LTX_TEXT_IMAGE_DECODE_TILE_SIZE", "256"))
 LTX_DECODE_TEMPORAL_SIZE = int(os.environ.get("LTX_TEXT_IMAGE_DECODE_TEMPORAL_SIZE", "32"))
+NO_VISIBLE_TEXT_PROMPT = (
+    "No visible text, no captions, no subtitles, no words, no letters, no signage, no logos, "
+    "no watermarks, no typography anywhere in the frame."
+)
 
 
 def uploaded_path(value):
@@ -169,6 +173,20 @@ class LtxTextImageProvider:
     def _reference_fit_mode(self):
         return os.environ.get("VIDEO_REFERENCE_FIT_MODE", "pad_edge")
 
+    def _compose_visual_prompt(self, prompt, spoken_line=None):
+        parts = [prompt.strip()]
+        spoken_line = (spoken_line or "").strip()
+        if spoken_line:
+            parts.append(
+                "The subject speaks this line aloud with natural lip movement and synchronized mouth shapes: "
+                f"{spoken_line}"
+            )
+            parts.append(
+                "The spoken line is audio/dialogue only; do not render the words visually."
+            )
+            parts.append(NO_VISIBLE_TEXT_PROMPT)
+        return " ".join(parts)
+
     def _generate_start_end_video(
         self,
         start_image_filepath,
@@ -179,6 +197,7 @@ class LtxTextImageProvider:
         duration,
         seed,
         progress,
+        spoken_line=None,
     ):
         workflow_source = self._start_end_workflow_source()
         if not workflow_source:
@@ -200,11 +219,12 @@ class LtxTextImageProvider:
         video_height = max(256, round(height / 16) * 16)
         fps = int(os.environ.get("START_END_I2V_FPS", "24"))
         frame_count = self._frame_count(duration, fps=fps)
+        composed_prompt = self._compose_visual_prompt(prompt, spoken_line)
 
         if self._is_repo_flf2v_workflow(workflow_source):
             self._set_input(workflow, "63", "image", start_name)
             self._set_input(workflow, "58", "image", end_name)
-            self._set_input(workflow, "16", "positive_prompt", prompt)
+            self._set_input(workflow, "16", "positive_prompt", composed_prompt)
             self._set_input(workflow, "89", "width", video_width)
             self._set_input(workflow, "89", "height", video_height)
             self._set_input(workflow, "89", "num_frames", frame_count)
@@ -235,8 +255,8 @@ class LtxTextImageProvider:
                     "and end/last, or set START_END_I2V_START_IMAGE_NODE and START_END_I2V_END_IMAGE_NODE."
                 )
 
-            self._set_input_from_env(workflow, "START_END_I2V_PROMPT_NODE", "text", prompt) or self._patch_inputs_by_hint(
-                workflow, "text", prompt, ("positive", "prompt")
+            self._set_input_from_env(workflow, "START_END_I2V_PROMPT_NODE", "text", composed_prompt) or self._patch_inputs_by_hint(
+                workflow, "text", composed_prompt, ("positive", "prompt")
             )
             self._set_input_from_env(workflow, "START_END_I2V_WIDTH_NODE", "width", video_width) or self._patch_all_matching_inputs(
                 workflow, "width", video_width
@@ -279,7 +299,19 @@ class LtxTextImageProvider:
         progress(1.0, desc="Done")
         return video
 
-    def generate(self, mode, image_filepath, end_image_filepath, prompt, width, height, duration, seed, progress):
+    def generate(
+        self,
+        mode,
+        image_filepath,
+        end_image_filepath,
+        prompt,
+        width,
+        height,
+        duration,
+        seed,
+        progress,
+        spoken_line=None,
+    ):
         if not prompt or not prompt.strip():
             raise gr.Error("Enter a prompt.")
 
@@ -297,8 +329,10 @@ class LtxTextImageProvider:
                 duration=duration,
                 seed=seed,
                 progress=progress,
+                spoken_line=spoken_line,
             )
 
+        composed_prompt = self._compose_visual_prompt(prompt, spoken_line)
         video_width = min(LTX_MAX_WIDTH, max(256, round(width / 32) * 32))
         video_height = min(LTX_MAX_HEIGHT, max(256, round(height / 32) * 32))
         video_width = max(256, round(video_width / 32) * 32)
@@ -309,7 +343,7 @@ class LtxTextImageProvider:
         workflow["292"]["inputs"]["value"] = video_width
         workflow["293"]["inputs"]["value"] = video_height
         workflow["285"]["inputs"]["value"] = 24
-        workflow["121"]["inputs"]["text"] = prompt
+        workflow["121"]["inputs"]["text"] = composed_prompt
         workflow["291"]["inputs"]["value"] = video_duration
         workflow["137"]["inputs"]["sampler_name"] = "lcm"
         workflow["360"]["inputs"]["sigmas"] = "1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0"
